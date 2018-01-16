@@ -2,6 +2,7 @@ package com.brolius;
 
 import javax.servlet.annotation.WebServlet;
 
+import com.brolius.antlr.CustomErrorListener;
 import com.brolius.antlr.DecafErrorListener;
 import com.brolius.antlr.decafLexer;
 import com.brolius.antlr.decafParser;
@@ -42,10 +43,12 @@ public class MyUI extends UI {
 
             CharStream charStream = CharStreams.fromString(editorInput);
             decafLexer decafLexer = new decafLexer(charStream);
+            decafLexer.removeErrorListeners();
+            decafLexer.addErrorListener(CustomErrorListener.INSTANCE);
             CommonTokenStream commonTokenStream = new CommonTokenStream(decafLexer);
             decafParser decafParser = new decafParser(commonTokenStream);
-//            decafParser.removeErrorListeners();
-//            decafParser.addErrorListener(new DecafErrorListener());
+            decafParser.removeErrorListeners();
+            decafParser.addErrorListener(CustomErrorListener.INSTANCE);
 
             ParseTree parseTree = decafParser.program();
             layout.addComponent(new Label(parseTree.toStringTree(decafParser)));
