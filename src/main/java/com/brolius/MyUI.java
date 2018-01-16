@@ -1,5 +1,6 @@
 package com.brolius;
 
+import javax.print.PrintException;
 import javax.servlet.annotation.WebServlet;
 
 import com.brolius.antlr.CustomErrorListener;
@@ -8,16 +9,27 @@ import com.brolius.antlr.decafLexer;
 import com.brolius.antlr.decafParser;
 import com.vaadin.annotations.Theme;
 import com.vaadin.annotations.VaadinServletConfiguration;
-import com.vaadin.server.Page;
-import com.vaadin.server.VaadinRequest;
-import com.vaadin.server.VaadinServlet;
+import com.vaadin.server.*;
 import com.vaadin.shared.Position;
 import com.vaadin.shared.ui.ContentMode;
 import com.vaadin.ui.*;
+import com.vaadin.ui.Button;
+import com.vaadin.ui.Component;
+import com.vaadin.ui.Image;
+import com.vaadin.ui.Label;
+import com.vaadin.ui.Panel;
+import com.vaadin.ui.TextArea;
+import com.vaadin.ui.Window;
+import org.antlr.v4.gui.TreeViewer;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
+
+import java.awt.*;
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * This UI is the application entry point. A UI may either represent a browser window 
@@ -29,6 +41,8 @@ import org.antlr.v4.runtime.tree.ParseTree;
 @Theme("mytheme")
 public class MyUI extends UI {
     String editorInput;
+    ParseTree grammarParseTree;
+    decafParser grammarParser;
 
     @Override
     protected void init(VaadinRequest vaadinRequest) {
@@ -51,37 +65,101 @@ public class MyUI extends UI {
         TextArea editor = new TextArea();
         editor.setSizeFull();
         editor.setWidth(100.0f, Unit.PERCENTAGE);
-        editor.setHeight(300.0f, Unit.PIXELS);
+        editor.setHeight(400.0f, Unit.PIXELS);
         editor.addValueChangeListener(event -> {
            editorInput = String.valueOf(event.getValue());
         });
 
         Button button = new Button("Compile code");
+        Button generateTreeBtn = new Button("Tree visual representation");
+        generateTreeBtn.setEnabled(false);
+
         button.addClickListener(e -> {
-            layout.addComponent(new Label(editorInput));
+            if (editorInput != null) {
+                consolePanelLayout.removeAllComponents();
 
-            CharStream charStream = CharStreams.fromString(editorInput);
-            decafLexer decafLexer = new decafLexer(charStream);
-            decafLexer.removeErrorListeners();
-            decafLexer.addErrorListener(new CustomErrorListener(consolePanelLayout));
-            CommonTokenStream commonTokenStream = new CommonTokenStream(decafLexer);
-            decafParser decafParser = new decafParser(commonTokenStream);
-            decafParser.removeErrorListeners();
-            decafParser.addErrorListener(new CustomErrorListener(consolePanelLayout));
+                CharStream charStream = CharStreams.fromString(editorInput);
+                decafLexer decafLexer = new decafLexer(charStream);
+                decafLexer.removeErrorListeners();
+                decafLexer.addErrorListener(new CustomErrorListener(consolePanelLayout));
+                CommonTokenStream commonTokenStream = new CommonTokenStream(decafLexer);
+                decafParser decafParser = new decafParser(commonTokenStream);
+                decafParser.removeErrorListeners();
+                decafParser.addErrorListener(new CustomErrorListener(consolePanelLayout));
 
-            ParseTree parseTree = decafParser.program();
-            layout.addComponent(new Label(parseTree.toStringTree(decafParser)));
+                ParseTree parseTree = decafParser.program();
+                grammarParseTree = parseTree;
+                Label lbl1 = new Label("<strong>TREE>> </strong>" + parseTree.toStringTree(decafParser), ContentMode.HTML);
+                lbl1.setWidth(100.0f, Sizeable.Unit.PERCENTAGE);
+                consolePanelLayout.addComponent(lbl1);
 
-            Notification notification = new Notification("Compilation done!", "Execution terminated!");
-            notification.setDelayMsec(2000);
-            notification.setPosition(Position.BOTTOM_LEFT);
-            notification.show(Page.getCurrent());
+                Notification notification = new Notification("Compilation done!", "Execution terminated!");
+                notification.setDelayMsec(2000);
+                notification.setPosition(Position.TOP_CENTER);
+                notification.show(Page.getCurrent());
 
+                grammarParser = decafParser;
+                generateTreeBtn.setEnabled(true);
+            } else {
+                Notification notification = new Notification("Empty code", "The editor is empty",
+                        Notification.Type.WARNING_MESSAGE, true);
+                notification.setDelayMsec(4000);
+                notification.setPosition(Position.BOTTOM_RIGHT);
+                notification.show(Page.getCurrent());
+            }
+
+        });
+
+        generateTreeBtn.addClickListener(event -> {
+            TreeViewer viewer = new TreeViewer(Arrays.asList(grammarParser.getRuleNames()), grammarParseTree);
+            viewer.setBorderColor(Color.WHITE);
+            viewer.setBoxColor(Color.WHITE);
+            try {
+                viewer.save("tree.jpg");
+                final Window window = new Window("Parse Tree");
+                window.setWidth(90.0f, Unit.PERCENTAGE);
+                window.setHeight(90.0f, Unit.PERCENTAGE);
+                window.center();
+
+                //String basepath = VaadinService.getCurrent().getBaseDirectory().getAbsolutePath();
+                FileResource resource = new FileResource(new File("tree.jpg"));
+                Image image = new Image("Tree saved to /tree.jpg", resource);
+
+                VerticalLayout treeLayout = new VerticalLayout();
+                treeLayout.setMargin(false);
+                treeLayout.setSpacing(false);
+                treeLayout.setHeight(100.0f, Unit.PERCENTAGE);
+                treeLayout.addComponent(image);
+                treeLayout.setComponentAlignment(image, Alignment.MIDDLE_CENTER);
+
+                window.setContent(treeLayout);
+
+                hLayout.getUI().getUI().addWindow(window);
+
+                Notification notification = new Notification("Execution Terminated", "Visual representation generated!");
+                notification.setDelayMsec(500);
+                notification.setPosition(Position.TOP_CENTER);
+                notification.show(Page.getCurrent());
+            } catch (IOException e1) {
+                e1.printStackTrace();
+                Notification notification = new Notification("Failed tree visualization", e1.getMessage(),
+                        Notification.Type.ERROR_MESSAGE, true);
+                notification.setDelayMsec(4000);
+                notification.setPosition(Position.BOTTOM_RIGHT);
+                notification.show(Page.getCurrent());
+            } catch (PrintException e1) {
+                e1.printStackTrace();
+                Notification notification = new Notification("Failed tree visualization", e1.getMessage(),
+                        Notification.Type.ERROR_MESSAGE, true);
+                notification.setDelayMsec(4000);
+                notification.setPosition(Position.BOTTOM_RIGHT);
+                notification.show(Page.getCurrent());
+            }
         });
 
         consolePanel.setContent(consolePanelLayout);
         consoleLayout.addComponent(consolePanel);
-        layout.addComponents(editorLbl, editor, button);
+        layout.addComponents(editorLbl, editor, button, generateTreeBtn);
         hLayout.addComponents(layout, consoleLayout);
         
         setContent(hLayout);
