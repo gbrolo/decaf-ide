@@ -34,23 +34,23 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * This UI is the application entry point. A UI may either represent a browser window 
- * (or tab) or some part of an HTML page where a Vaadin application is embedded.
- * <p>
- * The UI is initialized using {@link #init(VaadinRequest)}. This method is intended to be 
- * overridden to add component to the user interface and initialize non-component functionality.
+ * IDE UI for the Decaf Compiler
+ * @author Gabriel Brolo
+ * Universidad del Valle de Guatemala, Construccion de Compiladores
  */
 @Theme("mytheme")
 public class MyUI extends UI {
-    private String editorInput;
-    private ParseTree grammarParseTree;
-    private decafParser grammarParser;
-    private static final String endOfLine = "<br/>";
-    private int level = 0;
-    private String preetyFileTree;
+    private String editorInput; // actual input to compile
+    private ParseTree grammarParseTree; // the generated parse tree
+    private decafParser grammarParser; // the generated parser
+    private decafLexer grammarLexer; // the generated lexer
+    private static final String endOfLine = "<br/>"; // EOF for tree visualization
+    private int level = 0; // tree begin index level for tree visualization
+    private String prettyFileTree; // a pretty tree visualization in text
 
     @Override
     protected void init(VaadinRequest vaadinRequest) {
+        /* horizontal layout for input and console */
         HorizontalLayout hLayout = new HorizontalLayout();
         hLayout.setSpacing(false);
         hLayout.setMargin(false);
@@ -58,15 +58,18 @@ public class MyUI extends UI {
 
         Label editorLbl = new Label("<strong>Code Editor</strong>", ContentMode.HTML);
 
+        /* layout for the input area */
         final VerticalLayout layout = new VerticalLayout();
         final VerticalLayout consolePanelLayout = new VerticalLayout();
         consolePanelLayout.setSpacing(false);
 
         final VerticalLayout consoleLayout = new VerticalLayout();
 
+        /* console panel */
         Panel consolePanel = new Panel("Console");
         consolePanel.setHeight(500.0f, Unit.PIXELS);
 
+        /* the actual input area */
         TextArea editor = new TextArea();
         editor.setSizeFull();
         editor.setWidth(100.0f, Unit.PERCENTAGE);
@@ -75,6 +78,7 @@ public class MyUI extends UI {
            editorInput = String.valueOf(event.getValue());
         });
 
+        /* Buttons for compilation, tree and to clear the console */
         Button button = new Button("Compile code");
         Button generateTreeBtn = new Button("Tree representation");
         Button clrConsoleBtn = new Button("Clear console");
@@ -85,22 +89,24 @@ public class MyUI extends UI {
 
         generateTreeBtn.setEnabled(false);
 
+        /* button listeners */
         button.addClickListener(e -> {
             if (editorInput != null) {
+                /* clear the console */
                 consolePanelLayout.removeAllComponents();
 
+                /* generate a stream from input and create tree */
                 CharStream charStream = CharStreams.fromString(editorInput);
-                decafLexer decafLexer = new decafLexer(charStream);
-                decafLexer.removeErrorListeners();
-                decafLexer.addErrorListener(new CustomErrorListener(consolePanelLayout));
-                CommonTokenStream commonTokenStream = new CommonTokenStream(decafLexer);
-                decafParser decafParser = new decafParser(commonTokenStream);
-                decafParser.removeErrorListeners();
-                decafParser.addErrorListener(new CustomErrorListener(consolePanelLayout));
+                grammarLexer = new decafLexer(charStream);
+                grammarLexer.removeErrorListeners();
+                grammarLexer.addErrorListener(new CustomErrorListener(consolePanelLayout));
+                CommonTokenStream commonTokenStream = new CommonTokenStream(grammarLexer);
+                grammarParser = new decafParser(commonTokenStream);
+                grammarParser.removeErrorListeners();
+                grammarParser.addErrorListener(new CustomErrorListener(consolePanelLayout));
 
-                ParseTree parseTree = decafParser.program();
-                grammarParseTree = parseTree;
-                Label lbl1 = new Label("<strong>TREE>> </strong>" + parseTree.toStringTree(decafParser)
+                grammarParseTree = grammarParser.program();
+                Label lbl1 = new Label("<strong>TREE>> </strong>" + grammarParseTree.toStringTree(grammarParser)
                         + "<br><i>For a cleaner tree, click the \"Tree representation \" button.<i>", ContentMode.HTML);
                 lbl1.setWidth(100.0f, Sizeable.Unit.PERCENTAGE);
                 consolePanelLayout.addComponent(lbl1);
@@ -110,7 +116,6 @@ public class MyUI extends UI {
                 notification.setPosition(Position.TOP_CENTER);
                 notification.show(Page.getCurrent());
 
-                grammarParser = decafParser;
                 generateTreeBtn.setEnabled(true);
             } else {
                 Notification notification = new Notification("Empty code", "The editor is empty",
@@ -122,6 +127,7 @@ public class MyUI extends UI {
 
         });
 
+        /* visual tree representation */
         generateTreeBtn.addClickListener(event -> {
             TreeViewer viewer = new TreeViewer(Arrays.asList(grammarParser.getRuleNames()), grammarParseTree);
             viewer.setBorderColor(Color.WHITE);
@@ -132,7 +138,7 @@ public class MyUI extends UI {
                 List<String> ruleNamesList = Arrays.asList(grammarParser.getRuleNames());
                 //System.out.println(ruleNamesList.toString());
                 //System.out.println(prettyTree(parseTree, ruleNamesList));
-                preetyFileTree = prettyTree(grammarParseTree, ruleNamesList);
+                prettyFileTree = prettyTree(grammarParseTree, ruleNamesList);
 
                 final Window window = new Window("Parse Tree");
                 //window.setWidth(90.0f, Unit.PERCENTAGE);
@@ -140,6 +146,7 @@ public class MyUI extends UI {
                 window.center();
                 window.setResizable(false);
 
+                /* save the tree image */
                 //String basepath = VaadinService.getCurrent().getBaseDirectory().getAbsolutePath();
                 FileResource resource = new FileResource(new File("tree.jpg"));
                 Image image = new Image("Tree saved to /tree.jpg", resource);
@@ -155,7 +162,7 @@ public class MyUI extends UI {
                 Panel fileTreePanel = new Panel();
                 fileTreePanel.setHeight(500.0f, Unit.PIXELS);
 
-                Label fileTreeLbl = new Label(preetyFileTree, ContentMode.HTML);
+                Label fileTreeLbl = new Label(prettyFileTree, ContentMode.HTML);
                 fileTreeLbl.setWidth(100.0f, Sizeable.Unit.PERCENTAGE);
 
                 fileTreePanel.setContent(fileTreeLbl);
@@ -193,6 +200,15 @@ public class MyUI extends UI {
             consolePanelLayout.removeAllComponents();
         });
 
+        Label mainlbl = new Label("<div style=\"font-size: 1.8em;\"><center><strong>VaaDecaf</strong></center><div>", ContentMode.HTML);
+        mainlbl.setWidth(100.0f, Sizeable.Unit.PERCENTAGE);
+
+        Label subtitle = new Label("<center>A Decaf IDE made with Java, ANTLR and the Vaadin Framework</center>", ContentMode.HTML);
+        subtitle.setWidth(100.0f, Sizeable.Unit.PERCENTAGE);
+
+        VerticalLayout pagelayout = new VerticalLayout();
+        pagelayout.addComponents(mainlbl, subtitle, hLayout);
+
         HorizontalLayout editorButtonsLayout = new HorizontalLayout();
         editorButtonsLayout.setSizeFull();
         editorButtonsLayout.addComponents(button, generateTreeBtn, clrConsoleBtn);
@@ -202,7 +218,7 @@ public class MyUI extends UI {
         layout.addComponents(editorLbl, editor, editorButtonsLayout);
         hLayout.addComponents(layout, consoleLayout);
         
-        setContent(hLayout);
+        setContent(pagelayout);
     }
 
     @WebServlet(urlPatterns = "/*", name = "MyUIServlet", asyncSupported = true)
@@ -255,7 +271,7 @@ public class MyUI extends UI {
         if (level > 0) {
             sb.append(endOfLine);
             for (int cnt = 0; cnt < level; cnt++) {
-                sb.append("--");
+                sb.append("-");
             }
         }
         return sb.toString();
