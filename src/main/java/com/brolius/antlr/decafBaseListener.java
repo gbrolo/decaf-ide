@@ -233,37 +233,25 @@ public class decafBaseListener implements decafListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterOp(decafParser.OpContext ctx) { }
+	@Override public void enterAnd_op(decafParser.And_opContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitOp(decafParser.OpContext ctx) { }
+	@Override public void exitAnd_op(decafParser.And_opContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterArith_op(decafParser.Arith_opContext ctx) { }
+	@Override public void enterOr_op(decafParser.Or_opContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitArith_op(decafParser.Arith_opContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterRel_op(decafParser.Rel_opContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitRel_op(decafParser.Rel_opContext ctx) { }
+	@Override public void exitOr_op(decafParser.Or_opContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -281,13 +269,61 @@ public class decafBaseListener implements decafListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterCond_op(decafParser.Cond_opContext ctx) { }
+	@Override public void enterRel_op(decafParser.Rel_opContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitCond_op(decafParser.Cond_opContext ctx) { }
+	@Override public void exitRel_op(decafParser.Rel_opContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterModulus_op(decafParser.Modulus_opContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitModulus_op(decafParser.Modulus_opContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterDiv_op(decafParser.Div_opContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitDiv_op(decafParser.Div_opContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterMul_op(decafParser.Mul_opContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitMul_op(decafParser.Mul_opContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterArith_op_sum_subs(decafParser.Arith_op_sum_subsContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitArith_op_sum_subs(decafParser.Arith_op_sum_subsContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

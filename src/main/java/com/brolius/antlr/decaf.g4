@@ -57,10 +57,18 @@ location:              (ID|ID '[' expression ']') ('.' location)?  ;
 expression:            location
                        | methodCall
                        | literal
-                       | expression op expression
+                       | '('expression')'
                        | '-' expression
                        | '!' expression
-                       | '('expression')'  ;
+                       | expression and_op expression
+                       | expression or_op expression
+                       | expression eq_op expression
+                       | expression rel_op expression
+                       | expression modulus_op expression
+                       | expression div_op expression
+                       | expression mul_op expression
+                       | expression arith_op_sum_subs expression
+                       ;
 
 methodCall:            ID '(' arg1 ')' ;
 
@@ -70,18 +78,23 @@ arg2:                  (arg) (',' arg)* ;
 
 arg:                   expression;
 
-op:                    arith_op
-                       | rel_op
-                       | eq_op
-                       | cond_op  ;
 
-arith_op:              '+' | '-' | '*' | '/' | '%' ;
+and_op:                '&&';
 
-rel_op:                '<' | '>' | '<=' | '>=' ;
+or_op:                 '||';
 
 eq_op:                 '==' | '!=' ;
 
-cond_op:               '&&' | '||' ;
+rel_op:                '<' | '>' | '<=' | '>=' ;
+
+modulus_op:            '%';
+
+div_op:                '/';
+
+mul_op:                '*';
+
+arith_op_sum_subs:     '+' | '-';
+
 
 literal:               int_literal | char_literal | bool_literal ;
 

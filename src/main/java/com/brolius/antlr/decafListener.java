@@ -1,6 +1,7 @@
 package com.brolius.antlr;// Generated from decaf.g4 by ANTLR 4.7.1
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 
+
 /**
  * This interface defines a complete listener for a parse tree produced by
  * {@link decafParser}.
@@ -187,35 +188,25 @@ public interface decafListener extends ParseTreeListener {
 	 */
 	void exitArg(decafParser.ArgContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link decafParser#op}.
+	 * Enter a parse tree produced by {@link decafParser#and_op}.
 	 * @param ctx the parse tree
 	 */
-	void enterOp(decafParser.OpContext ctx);
+	void enterAnd_op(decafParser.And_opContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link decafParser#op}.
+	 * Exit a parse tree produced by {@link decafParser#and_op}.
 	 * @param ctx the parse tree
 	 */
-	void exitOp(decafParser.OpContext ctx);
+	void exitAnd_op(decafParser.And_opContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link decafParser#arith_op}.
+	 * Enter a parse tree produced by {@link decafParser#or_op}.
 	 * @param ctx the parse tree
 	 */
-	void enterArith_op(decafParser.Arith_opContext ctx);
+	void enterOr_op(decafParser.Or_opContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link decafParser#arith_op}.
+	 * Exit a parse tree produced by {@link decafParser#or_op}.
 	 * @param ctx the parse tree
 	 */
-	void exitArith_op(decafParser.Arith_opContext ctx);
-	/**
-	 * Enter a parse tree produced by {@link decafParser#rel_op}.
-	 * @param ctx the parse tree
-	 */
-	void enterRel_op(decafParser.Rel_opContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link decafParser#rel_op}.
-	 * @param ctx the parse tree
-	 */
-	void exitRel_op(decafParser.Rel_opContext ctx);
+	void exitOr_op(decafParser.Or_opContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link decafParser#eq_op}.
 	 * @param ctx the parse tree
@@ -227,15 +218,55 @@ public interface decafListener extends ParseTreeListener {
 	 */
 	void exitEq_op(decafParser.Eq_opContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link decafParser#cond_op}.
+	 * Enter a parse tree produced by {@link decafParser#rel_op}.
 	 * @param ctx the parse tree
 	 */
-	void enterCond_op(decafParser.Cond_opContext ctx);
+	void enterRel_op(decafParser.Rel_opContext ctx);
 	/**
-	 * Exit a parse tree produced by {@link decafParser#cond_op}.
+	 * Exit a parse tree produced by {@link decafParser#rel_op}.
 	 * @param ctx the parse tree
 	 */
-	void exitCond_op(decafParser.Cond_opContext ctx);
+	void exitRel_op(decafParser.Rel_opContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link decafParser#modulus_op}.
+	 * @param ctx the parse tree
+	 */
+	void enterModulus_op(decafParser.Modulus_opContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link decafParser#modulus_op}.
+	 * @param ctx the parse tree
+	 */
+	void exitModulus_op(decafParser.Modulus_opContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link decafParser#div_op}.
+	 * @param ctx the parse tree
+	 */
+	void enterDiv_op(decafParser.Div_opContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link decafParser#div_op}.
+	 * @param ctx the parse tree
+	 */
+	void exitDiv_op(decafParser.Div_opContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link decafParser#mul_op}.
+	 * @param ctx the parse tree
+	 */
+	void enterMul_op(decafParser.Mul_opContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link decafParser#mul_op}.
+	 * @param ctx the parse tree
+	 */
+	void exitMul_op(decafParser.Mul_opContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link decafParser#arith_op_sum_subs}.
+	 * @param ctx the parse tree
+	 */
+	void enterArith_op_sum_subs(decafParser.Arith_op_sum_subsContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link decafParser#arith_op_sum_subs}.
+	 * @param ctx the parse tree
+	 */
+	void exitArith_op_sum_subs(decafParser.Arith_op_sum_subsContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link decafParser#literal}.
 	 * @param ctx the parse tree
