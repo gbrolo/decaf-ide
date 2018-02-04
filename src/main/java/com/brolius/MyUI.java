@@ -4,6 +4,7 @@ import javax.print.PrintException;
 import javax.servlet.annotation.WebServlet;
 
 import com.brolius.antlr.CustomErrorListener;
+import com.brolius.semanticControl.SemanticListener;
 import com.brolius.antlr.decafLexer;
 import com.brolius.antlr.decafParser;
 import com.vaadin.annotations.Theme;
@@ -24,6 +25,7 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.misc.Utils;
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.antlr.v4.runtime.tree.Tree;
 import org.antlr.v4.runtime.tree.Trees;
 
@@ -109,7 +111,26 @@ public class MyUI extends UI {
                 Label lbl1 = new Label("<strong>TREE>> </strong>" + grammarParseTree.toStringTree(grammarParser)
                         + "<br><i>For a cleaner tree, click the \"Tree representation \" button.<i>", ContentMode.HTML);
                 lbl1.setWidth(100.0f, Sizeable.Unit.PERCENTAGE);
-                consolePanelLayout.addComponent(lbl1);
+                //consolePanelLayout.addComponent(lbl1);
+
+                // SEMANTIC CONTROL ------------------------------------------------------------------------------------
+                ParseTreeWalker walker = new ParseTreeWalker();
+                SemanticListener semanticListener = new SemanticListener(grammarParser);
+                walker.walk(semanticListener, grammarParseTree);
+                List<String> errList = semanticListener.getSemanticErrorsList();
+
+                if (!errList.isEmpty()) {
+                    for (String error : errList) {
+                        Label errLbl = new Label("<strong>ERROR>> </strong>" + error, ContentMode.HTML);
+                        lbl1.setWidth(100.0f, Sizeable.Unit.PERCENTAGE);
+                        consolePanelLayout.addComponent(errLbl);
+                    }
+                    Notification notification = new Notification("Compiled with errors", "See console for details",
+                            Notification.Type.ERROR_MESSAGE, true);
+                    notification.setDelayMsec(4000);
+                    notification.setPosition(Position.BOTTOM_RIGHT);
+                    notification.show(Page.getCurrent());
+                }
 
                 Notification notification = new Notification("Compilation done!", "Execution terminated!");
                 notification.setDelayMsec(2000);

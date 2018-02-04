@@ -17,7 +17,7 @@ CHAR:               '\'' ( ~['\r\n\\] | '\\' ['\\] ) '\'';
 
 // ------------------------------- PARSER --------------------------------------
 
-program:              'class' 'Program' '{' (declaration)* '}'  ;
+program:              'class' ID '{' (declaration)* '}'  ;
 
 declaration:          structDeclaration| varDeclaration | methodDeclaration  ;
 
