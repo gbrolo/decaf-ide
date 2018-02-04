@@ -1051,11 +1051,11 @@ public class decafParser extends Parser {
 	}
 
 	public static class ExpressionContext extends ParserRuleContext {
-		public LocationContext location() {
-			return getRuleContext(LocationContext.class,0);
-		}
 		public MethodCallContext methodCall() {
 			return getRuleContext(MethodCallContext.class,0);
+		}
+		public LocationContext location() {
+			return getRuleContext(LocationContext.class,0);
 		}
 		public LiteralContext literal() {
 			return getRuleContext(LiteralContext.class,0);
@@ -1125,13 +1125,13 @@ public class decafParser extends Parser {
 			case 1:
 				{
 				setState(207);
-				location();
+				methodCall();
 				}
 				break;
 			case 2:
 				{
 				setState(208);
-				methodCall();
+				location();
 				}
 				break;
 			case 3:
@@ -2101,8 +2101,8 @@ public class decafParser extends Parser {
 		"\2\u00c6\u00c7\7\7\2\2\u00c7\u00c8\5\34\17\2\u00c8\u00c9\7\b\2\2\u00c9"+
 		"\u00cb\3\2\2\2\u00ca\u00c4\3\2\2\2\u00ca\u00c5\3\2\2\2\u00cb\u00ce\3\2"+
 		"\2\2\u00cc\u00cd\7\26\2\2\u00cd\u00cf\5\32\16\2\u00ce\u00cc\3\2\2\2\u00ce"+
-		"\u00cf\3\2\2\2\u00cf\33\3\2\2\2\u00d0\u00d1\b\17\1\2\u00d1\u00dd\5\32"+
-		"\16\2\u00d2\u00dd\5\36\20\2\u00d3\u00dd\5\66\34\2\u00d4\u00d5\7\16\2\2"+
+		"\u00cf\3\2\2\2\u00cf\33\3\2\2\2\u00d0\u00d1\b\17\1\2\u00d1\u00dd\5\36"+
+		"\20\2\u00d2\u00dd\5\32\16\2\u00d3\u00dd\5\66\34\2\u00d4\u00d5\7\16\2\2"+
 		"\u00d5\u00d6\5\34\17\2\u00d6\u00d7\7\20\2\2\u00d7\u00dd\3\2\2\2\u00d8"+
 		"\u00d9\7\27\2\2\u00d9\u00dd\5\34\17\f\u00da\u00db\7\30\2\2\u00db\u00dd"+
 		"\5\34\17\13\u00dc\u00d0\3\2\2\2\u00dc\u00d2\3\2\2\2\u00dc\u00d3\3\2\2"+

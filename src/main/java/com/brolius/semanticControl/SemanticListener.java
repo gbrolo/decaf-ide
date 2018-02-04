@@ -5,6 +5,8 @@ import com.brolius.antlr.decafParser;
 import org.antlr.v4.runtime.TokenStream;
 import org.antlr.v4.runtime.TokenStream;
 import org.antlr.v4.runtime.misc.Interval;
+import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.ParseTreeListener;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -106,14 +108,6 @@ public class SemanticListener extends decafBaseListener {
                 break;
             }
         }
-
-        // location can be a call to a function
-//        for (MethodElement me : methodFirms) {
-//            if (me.getFirm().equals(ID)) {
-//                isLocationDefined = true;
-//                break;
-//            }
-//        }
 
         if (!isLocationDefined) {
             semanticErrorsList.add("Variable <strong>\"" + ID + "\"</strong> is not defined. ");

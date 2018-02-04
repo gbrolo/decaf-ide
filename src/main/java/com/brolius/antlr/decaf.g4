@@ -54,8 +54,8 @@ expressionA:           expression | ;
 
 location:              (ID|ID '[' expression ']') ('.' location)?  ;
 
-expression:            location
-                       | methodCall
+expression:            methodCall
+                       | location
                        | literal
                        | '('expression')'
                        | '-' expression
