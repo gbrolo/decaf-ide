@@ -3,10 +3,6 @@ package com.brolius.semanticControl;
 import com.brolius.antlr.decafBaseListener;
 import com.brolius.antlr.decafParser;
 import org.antlr.v4.runtime.TokenStream;
-import org.antlr.v4.runtime.TokenStream;
-import org.antlr.v4.runtime.misc.Interval;
-import org.antlr.v4.runtime.tree.ParseTree;
-import org.antlr.v4.runtime.tree.ParseTreeListener;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -18,6 +14,8 @@ public class SemanticListener extends decafBaseListener {
     private List<String> semanticErrorsList; // list for semantic errors found
     private List<MethodElement> methodFirms; // a list for the found methods
     private List<VarElement> varList;        // a list for the variables
+    private List<Operation> operationList;   // list for operations found in expressions
+    List<Character> arithOperatorsList;
 
     private MethodElement currentMethodContext; // to check the current context of variable declarations and operations
 
@@ -27,8 +25,187 @@ public class SemanticListener extends decafBaseListener {
         this.semanticErrorsList = new LinkedList<>();
         this.methodFirms = new LinkedList<>();
         this.varList = new LinkedList<>();
+        this.operationList = new LinkedList<>();
+
+        this.arithOperatorsList = new LinkedList<>();
+        arithOperatorsList.add('+');
+        arithOperatorsList.add('-');
+        arithOperatorsList.add('*');
+        arithOperatorsList.add('/');
+        arithOperatorsList.add('%');
 
         currentMethodContext = new MethodElement("void", "global", new LinkedList<>());
+    }
+
+    @Override
+    public void enterExpression(decafParser.ExpressionContext ctx) {
+        System.out.println(">>found expression!");
+        System.out.println(ctx.getText());
+
+        String operation = ctx.getText();
+
+        if (!operation.contains("(")) {
+            if (getNumberOfOperators(operation) == 1) {
+                String operator = "";
+
+                if (operation.contains("+")) { operator =  "+"; }
+                if (operation.contains("-")) { operator =  "-"; }
+                if (operation.contains("/")) { operator =  "/"; }
+                if (operation.contains("*")) { operator =  "*"; }
+                if (operation.contains("%")) { operator =  "%"; }
+
+                String[] splits = operation.split("\\+|-|\\*|/|%");
+                String[] splitsTypes = new String[splits.length];
+
+                int i = 0;
+                for (String str : splits) {
+                    // check for variable type
+                    for (VarElement ve : varList) {
+                        if (ve.getID().equals(str) && ve.getContext().equals(currentMethodContext)) {
+                            splitsTypes[i] = ve.getVarType();
+                            break;
+                        }
+                    }
+
+                    // check for method type
+                    if (splitsTypes[i] == null) {
+                        for (MethodElement me : methodFirms) {
+                            if (me.getFirm().equals(str)) {
+                                splitsTypes[i] = me.getType();
+                                break;
+                            }
+                        }
+                    }
+
+                    // check for type of literal
+                    if (splitsTypes[i] == null) {
+                        if (str.equals("true") || str.equals("false")) {
+                            // bool_literal
+                            splitsTypes[i] = "boolean";
+                        } else {
+                            // int_literal
+                            try {
+                                int parse = Integer.parseInt(str);
+                                splitsTypes[i] = "int";
+                            } catch (Exception e) {
+                                // its a char_literal
+                                splitsTypes[i] = "char";
+                            }
+                        }
+                    }
+                    i++;
+                }
+
+                // now we have types and operator
+                // method that returns type of operation
+                String operationType = typeSystemOperations(operator, splitsTypes);
+                if (operationType.equals("illegal")) {
+                    semanticErrorsList.add("Illegal operation <i>" + operation + "</i>, <strong>"
+                            + splitsTypes[0] + operator
+                    + splitsTypes[1] + "</strong>");
+                } else {
+                    operationList.add(new Operation(operation, operationType));
+                }
+
+                // TODO replace type in operations list elements
+
+            } else if (getNumberOfOperators(operation) > 1){
+                operationList.add(new Operation(operation));
+            } else if (getNumberOfOperators(operation) < 1) {
+                String type = "";
+                boolean isNotAVar = true;
+
+                for (VarElement ve : varList) {
+                    if (ve.getID().equals(operation)) {
+                        isNotAVar = false;
+                        break;
+                    }
+                }
+
+                if (isNotAVar) {
+                    if (operation.equals("true") || operation.equals("false")) {
+                        // bool_literal
+                        type = "boolean";
+                    } else {
+                        // int_literal
+                        try {
+                            int parse = Integer.parseInt(operation);
+                            type = "int";
+                        } catch (Exception e) {
+                            // its a char_literal
+                            type = "char";
+                        }
+                    }
+                }
+
+                if (!type.equals("")) {
+                    // TODO make replacement in list
+                    for (Operation op : operationList) {
+                        System.out.println("entre a verificar la op");
+                        String opOperation = op.getOperation();
+                        String opType = op.getType();
+                        boolean remove = false;
+                        if (opOperation.contains(operation)) {
+                            System.out.println("la operacion contiene la sub");
+                            opOperation.replace(operation, type);
+                            Operation newOp = new Operation(opOperation, opType);
+                            //operationList.add(newOp);
+                            remove = true;
+                        }
+
+                        if (remove) {
+                            //operationList.remove(op);
+                        }
+                    }
+                }
+            }
+        } else {
+            operationList.add(new Operation(operation));
+        }
+    }
+
+    @Override
+    public void exitStatement(decafParser.StatementContext ctx) {
+        System.out.println(operationList.toString());
+    }
+
+    public String typeSystemOperations(String operator, String[] types) {
+        System.out.println("checked types for operations");
+        // operations with ints
+        if (types[0].equals("int") && types[1].equals("int")) {
+            if ((operator.equals("+")) || (operator.equals("-"))
+                    || (operator.equals("/")) ||(operator.equals("*"))
+                    || (operator.equals("%"))){
+                return "int";
+            } else if ((operator.equals("<")) || (operator.equals(">"))
+                    || (operator.equals("<=")) || (operator.equals(">="))) {
+                return "boolean";
+            } else if (operator.equals("=")) {
+                return "void";
+            } else if (operator.equals("==") || operator.equals("!=")) {
+                return "boolean";
+            } else return "illegal";
+        } else if (types[0].equals("boolean") && types[1].equals("boolean")) {
+            if ((operator.equals("&&")) || (operator.equals("||"))) {
+                return "boolean";
+            } else return "illegal";
+        } else if (types[0].equals(types[1])) {
+            if (operator.equals("=")) {
+                return "void";
+            } else if (operator.equals("==") || operator.equals("!=")) {
+                return "boolean";
+            } else return "illegal";
+        } else return "illegal";
+    }
+
+    public int getNumberOfOperators(String operation) {
+        int operators = 0;
+        for (int i = 0; i < operation.length(); i++) {
+            if (arithOperatorsList.contains(operation.charAt(i))) {
+                operators++;
+            }
+        }
+        return operators;
     }
 
     @Override
@@ -41,6 +218,49 @@ public class SemanticListener extends decafBaseListener {
                 // should not return nothing
                 semanticErrorsList.add("Method <strong>" + currentMethodContext.getFirm() + "</strong> " +
                         "declared as void. Invalid return statement.");
+            }
+        }
+
+        // location = expression type
+        if (ctx.location() != null && ctx.expression() != null) {
+            // check first if the assign is a method call
+            // check if its a method_call
+            String operation = ctx.expression().getText();
+            String[] split = operation.split("\\(.\\)");
+            String type = "";
+            for (MethodElement me : methodFirms) {
+                if (me.getFirm().equals(split[0])) {
+                    type = me.getType();
+                    break;
+                }
+            }
+
+            if (!type.equals("")) {
+                //get location type
+                String locType = "";
+                for (VarElement ve : varList) {
+                    if (ve.getID().equals(ctx.location().getText())) {
+                        locType = ve.getVarType();
+                        break;
+                    }
+                }
+
+                String[] types = new String[2];
+                types[0] = locType;
+                types[1] = type;
+
+                System.out.println("type of locType " + locType);
+                System.out.println("type of type " + type);
+
+                String operationType = typeSystemOperations("=", types);
+                if (operationType.equals("illegal")) {
+                    semanticErrorsList.add("Illegal operation <i>" + ctx.location().getText() + "=" + operation +
+                            "</i>, <strong>"
+                            + types[0] + "="
+                            + types[1] + "</strong>");
+                }
+            } else {
+                // TODO didnt find a method but the expression can be an operation
             }
         }
 

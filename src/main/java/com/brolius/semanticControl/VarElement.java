@@ -5,6 +5,7 @@ public class VarElement {
     private String ID;
     private int NUM;
     private boolean isArray;
+    private String value;
 
     private MethodElement context;
 
@@ -13,6 +14,14 @@ public class VarElement {
         this.ID = ID;
         this.varType = varType;
         isArray = false;
+
+        if (varType.equals("int")) {
+            value = "0";
+        }
+    }
+
+    public void setValue(String value) {
+        this.value = value;
     }
 
     public boolean equals(VarElement ve) {
@@ -31,4 +40,5 @@ public class VarElement {
     public int getNUM() { return NUM; }
     public MethodElement getContext() { return context; }
     public boolean isArray() { return isArray; }
+    public String getValue() { return value; }
 }
