@@ -139,24 +139,29 @@ public class SemanticListener extends decafBaseListener {
                 }
 
                 if (!type.equals("")) {
-                    // TODO make replacement in list
+                    // make replacement in list
+                    List<Operation> tmp = new LinkedList<>();
+                    //System.out.println("operationList antes " + operationList.toString());
                     for (Operation op : operationList) {
-                        System.out.println("entre a verificar la op");
+                        //System.out.println("entre a verificar la op " + op.toString());
                         String opOperation = op.getOperation();
                         String opType = op.getType();
-                        boolean remove = false;
                         if (opOperation.contains(operation)) {
-                            System.out.println("la operacion contiene la sub");
-                            opOperation.replace(operation, type);
+                            //System.out.println("la operacion contiene la sub");
+                            opOperation = opOperation.replace(operation, type);
+                            //System.out.println("reemplazo " + opOperation);
                             Operation newOp = new Operation(opOperation, opType);
-                            //operationList.add(newOp);
-                            remove = true;
-                        }
-
-                        if (remove) {
-                            //operationList.remove(op);
+                            //System.out.println("Reemplazo a agregar " + newOp.toString());
+                            tmp.add(newOp);
+                        } else {
+                            //System.out.println("No la contiene, copio lo anterior " + op.toString());
+                            tmp.add(op);
                         }
                     }
+                    //System.out.println("operationList antes de clear " + operationList.toString());
+                    operationList.clear();
+                    operationList.addAll(tmp);
+                    //System.out.println("operationList despues de llenarla " + operationList.toString());
                 }
             }
         } else {
@@ -166,7 +171,108 @@ public class SemanticListener extends decafBaseListener {
 
     @Override
     public void exitStatement(decafParser.StatementContext ctx) {
-        System.out.println(operationList.toString());
+        //TODO add verification for methods
+        List<Operation> tmp2 = new LinkedList<>();
+        tmp2.addAll(operationList);
+        for (Operation op : operationList) {
+            if (op.getType() != null) {
+                List<Operation> tmp1 = new LinkedList<>();
+                for (Operation opInterno : tmp2) {
+                    if (opInterno.getOperation().contains(op.getOperation()) &&
+                            !opInterno.getOperation().equals(op.getOperation())) {
+                        // do replacement
+                        String newOperation = opInterno.getOperation().replace(op.getOperation(), op.getType());
+                        Operation newOp = new Operation(newOperation, opInterno.getType());
+                        tmp1.add(newOp);
+                    } else tmp1.add(opInterno);
+                }
+                tmp1.remove(op);
+                tmp2.clear();
+                tmp2.addAll(tmp1);
+            }
+        }
+        operationList.clear();
+        operationList.addAll(tmp2);
+
+        // verify if expressions still have variables that can be changed by the type
+        for (VarElement ve : varList) {
+            List<Operation> tmp = new LinkedList<>();
+            for (Operation op : operationList) {
+                if (op.getOperation().contains(ve.getID())) {
+                    String newOperation = op.getOperation().replace(ve.getID(), ve.getVarType());
+                    Operation newOp = new Operation(newOperation, op.getType());
+                    tmp.add(newOp);
+                } else tmp.add(op);
+            }
+            operationList.clear();
+            operationList.addAll(tmp);
+        }
+
+        System.out.println("printing" + operationList.toString());
+
+        // reduce expressions in operations list
+        boolean stop = false;
+        while (!stop) {
+            // find atomic expressions and give them a type
+            List<Operation> tmp = new LinkedList<>();
+            for (Operation op : operationList) {
+                String operation = op.getOperation();
+                if (getNumberOfOperators(operation) == 1 && op.getType()==null) {
+                    String operator = "";
+
+                    if (operation.contains("+")) { operator =  "+"; }
+                    if (operation.contains("-")) { operator =  "-"; }
+                    if (operation.contains("/")) { operator =  "/"; }
+                    if (operation.contains("*")) { operator =  "*"; }
+                    if (operation.contains("%")) { operator =  "%"; }
+
+                    String[] splits = operation.replaceAll("\\(|\\)", "").split("\\+|-|\\*|/|%");
+                    String typeOfOperation = typeSystemOperations(operator, splits);
+
+                    if (typeOfOperation.equals("illegal")) {
+                        semanticErrorsList.add("Expression <strong>" + operation + "</strong> is an invalid expression. <br>At <strong>"+
+                        ctx.getText() + "</strong>");
+                    }
+
+                    Operation newOperation = new Operation(operation, typeOfOperation);
+                    tmp.add(newOperation);
+                } else tmp.add(op);
+            }
+
+            operationList.clear();
+            operationList.addAll(tmp);
+
+            // now make replacements
+            tmp2 = new LinkedList<>();
+            tmp2.addAll(operationList);
+            for (Operation op : operationList) {
+                if (op.getType() != null) {
+                    List<Operation> tmp1 = new LinkedList<>();
+                    for (Operation opInterno : tmp2) {
+                        if (opInterno.getOperation().contains(op.getOperation()) &&
+                                !opInterno.getOperation().equals(op.getOperation())) {
+                            // do replacement
+                            String newOperation = opInterno.getOperation().replace(op.getOperation(), op.getType());
+                            Operation newOp = new Operation(newOperation, opInterno.getType());
+                            tmp1.add(newOp);
+                        } else tmp1.add(opInterno);
+                    }
+                    tmp1.remove(op);
+                    tmp2.clear();
+                    tmp2.addAll(tmp1);
+                }
+            }
+            operationList.clear();
+            operationList.addAll(tmp2);
+
+            System.out.println("size: " + operationList.size());
+            // check for flag
+            if (operationList.size() == 0) {
+                stop = true;
+                System.out.println("last operation is: " + operationList.toString());
+            }
+        }
+        System.out.println("printing after while " + operationList.toString());
     }
 
     public String typeSystemOperations(String operator, String[] types) {
