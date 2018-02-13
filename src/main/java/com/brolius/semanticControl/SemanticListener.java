@@ -15,7 +15,7 @@ public class SemanticListener extends decafBaseListener {
     private List<MethodElement> methodFirms; // a list for the found methods
     private List<VarElement> varList;        // a list for the variables
     private List<Operation> operationList;   // list for operations found in expressions
-    List<Character> arithOperatorsList;
+    List<String> arithOperatorsList;
 
     private MethodElement currentMethodContext; // to check the current context of variable declarations and operations
 
@@ -28,11 +28,19 @@ public class SemanticListener extends decafBaseListener {
         this.operationList = new LinkedList<>();
 
         this.arithOperatorsList = new LinkedList<>();
-        arithOperatorsList.add('+');
-        arithOperatorsList.add('-');
-        arithOperatorsList.add('*');
-        arithOperatorsList.add('/');
-        arithOperatorsList.add('%');
+        arithOperatorsList.add("+");
+        arithOperatorsList.add("-");
+        arithOperatorsList.add("*");
+        arithOperatorsList.add("/");
+        arithOperatorsList.add("%");
+        arithOperatorsList.add("&&");
+        arithOperatorsList.add("||");
+        arithOperatorsList.add("==");
+        arithOperatorsList.add("!=");
+        arithOperatorsList.add("<");
+        arithOperatorsList.add(">");
+        arithOperatorsList.add("<=");
+        arithOperatorsList.add(">=");
 
         currentMethodContext = new MethodElement("void", "global", new LinkedList<>());
     }
@@ -172,6 +180,7 @@ public class SemanticListener extends decafBaseListener {
                 }
             }
         } else {
+            System.out.println(operationList.toString());
             operationList.add(new Operation(operation));
         }
     }
@@ -214,7 +223,7 @@ public class SemanticListener extends decafBaseListener {
         for (VarElement ve : varList) {
             List<Operation> tmp = new LinkedList<>();
             for (Operation op : operationList) {
-                if (op.getOperation().contains(ve.getID())) {
+                if (op.getOperation().contains(ve.getID()) && ve.getContext().equals(currentMethodContext)) {
                     String newOperation = op.getOperation().replace(ve.getID(), ve.getVarType());
                     Operation newOp = new Operation(newOperation, op.getType());
                     tmp.add(newOp);
@@ -289,6 +298,11 @@ public class SemanticListener extends decafBaseListener {
                     tmp1.remove(op);
                     tmp2.clear();
                     tmp2.addAll(tmp1);
+                } else {
+                    if (tmp2.size() == 1) {
+                        finalType = tmp2.get(0).getType();
+                        stop = true;
+                    }
                 }
             }
             operationList.clear();
@@ -325,9 +339,11 @@ public class SemanticListener extends decafBaseListener {
                     if (ve.getVarType().equals(typeOf)) {
                         System.out.println("types matched");
                     } else if (!ve.getVarType().equals(typeOf)) {
-                        System.out.println("types didnt match");
-                        semanticErrorsList.add("Types don't match at <strong>" + ctx.getText() + "</strong> <i>" +
-                                ve.getVarType() + "</i> is not equal to </i><i>" + typeOf + "</i>");
+                        if (!typeOf.equals("")) {
+                            System.out.println("types didnt match");
+                            semanticErrorsList.add("Types don't match at <strong>" + ctx.getText() + "</strong> <i>" +
+                                    ve.getVarType() + "</i> is not equal to </i><i>" + typeOf + "</i>");
+                        }
                     }
                 }
             }
@@ -365,11 +381,13 @@ public class SemanticListener extends decafBaseListener {
 
     public int getNumberOfOperators(String operation) {
         int operators = 0;
-        for (int i = 0; i < operation.length(); i++) {
-            if (arithOperatorsList.contains(operation.charAt(i))) {
-                operators++;
-            }
-        }
+//        for (int i = 0; i < operation.length(); i++) {
+//            if (arithOperatorsList.contains(Character.toString(operation.charAt(i)))) {
+//                operators++;
+//            }
+//        }
+        String[] splits = operation.split("\\+|-|\\*|/|%|&&|\\|\\||==|!=|<|<=|>|>=");
+        operators = splits.length - 1;
         return operators;
     }
 
