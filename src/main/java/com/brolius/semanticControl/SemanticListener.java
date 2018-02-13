@@ -324,8 +324,10 @@ public class SemanticListener extends decafBaseListener {
                 if (ve.getID().equals(ctx.location().getText())) {
                     if (ve.getVarType().equals(typeOf)) {
                         System.out.println("types matched");
-                    } else if (!typeOf.equals("") && !ve.getVarType().equals(typeOf)) {
+                    } else if (!ve.getVarType().equals(typeOf)) {
                         System.out.println("types didnt match");
+                        semanticErrorsList.add("Types don't match at <strong>" + ctx.getText() + "</strong> <i>" +
+                                ve.getVarType() + "</i> is not equal to </i><i>" + typeOf + "</i>");
                     }
                 }
             }
