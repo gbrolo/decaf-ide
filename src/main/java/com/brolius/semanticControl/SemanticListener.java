@@ -37,8 +37,7 @@ public class SemanticListener extends decafBaseListener {
         currentMethodContext = new MethodElement("void", "global", new LinkedList<>());
     }
 
-    @Override
-    public void enterExpression(decafParser.ExpressionContext ctx) {
+    public void operateExpression(decafParser.ExpressionContext ctx) {
         System.out.println(">>found expression!");
         System.out.println(ctx.getText());
 
@@ -53,8 +52,16 @@ public class SemanticListener extends decafBaseListener {
                 if (operation.contains("/")) { operator =  "/"; }
                 if (operation.contains("*")) { operator =  "*"; }
                 if (operation.contains("%")) { operator =  "%"; }
+                if (operation.contains("&&")) { operator =  "&&"; }
+                if (operation.contains("||")) { operator =  "||"; }
+                if (operation.contains("==")) { operator =  "=="; }
+                if (operation.contains("!=")) { operator =  "!="; }
+                if (operation.contains("<")) { operator =  "<"; }
+                if (operation.contains("<=")) { operator =  "<="; }
+                if (operation.contains(">")) { operator =  ">"; }
+                if (operation.contains(">=")) { operator =  ">="; }
 
-                String[] splits = operation.split("\\+|-|\\*|/|%");
+                String[] splits = operation.split("\\+|-|\\*|/|%|&&|\\|\\||==|!=|<|<=|>|>=");
                 String[] splitsTypes = new String[splits.length];
 
                 int i = 0;
@@ -102,7 +109,7 @@ public class SemanticListener extends decafBaseListener {
                 if (operationType.equals("illegal")) {
                     semanticErrorsList.add("Illegal operation <i>" + operation + "</i>, <strong>"
                             + splitsTypes[0] + operator
-                    + splitsTypes[1] + "</strong>");
+                            + splitsTypes[1] + "</strong>");
                 } else {
                     operationList.add(new Operation(operation, operationType));
                 }
@@ -170,7 +177,16 @@ public class SemanticListener extends decafBaseListener {
     }
 
     @Override
-    public void exitStatement(decafParser.StatementContext ctx) {
+    public void enterExpression(decafParser.ExpressionContext ctx) {
+        if (ctx.methodCall() != null) {
+            System.out.println("is method");
+        } else {
+            operateExpression(ctx);
+        }
+    }
+
+    public String getTypeOfExpression(decafParser.StatementContext ctx) {
+        String finalType = "";
         //TODO add verification for methods
         List<Operation> tmp2 = new LinkedList<>();
         tmp2.addAll(operationList);
@@ -225,13 +241,21 @@ public class SemanticListener extends decafBaseListener {
                     if (operation.contains("/")) { operator =  "/"; }
                     if (operation.contains("*")) { operator =  "*"; }
                     if (operation.contains("%")) { operator =  "%"; }
+                    if (operation.contains("&&")) { operator =  "&&"; }
+                    if (operation.contains("||")) { operator =  "||"; }
+                    if (operation.contains("==")) { operator =  "=="; }
+                    if (operation.contains("!=")) { operator =  "!="; }
+                    if (operation.contains("<")) { operator =  "<"; }
+                    if (operation.contains("<=")) { operator =  "<="; }
+                    if (operation.contains(">")) { operator =  ">"; }
+                    if (operation.contains(">=")) { operator =  ">="; }
 
-                    String[] splits = operation.replaceAll("\\(|\\)", "").split("\\+|-|\\*|/|%");
+                    String[] splits = operation.replaceAll("\\(|\\)", "").split("\\+|-|\\*|/|%|&&|\\|\\||==|!=|<|<=|>|>=");
                     String typeOfOperation = typeSystemOperations(operator, splits);
 
                     if (typeOfOperation.equals("illegal")) {
                         semanticErrorsList.add("Expression <strong>" + operation + "</strong> is an invalid expression. <br>At <strong>"+
-                        ctx.getText() + "</strong>");
+                                ctx.getText() + "</strong>");
                     }
 
                     Operation newOperation = new Operation(operation, typeOfOperation);
@@ -243,6 +267,7 @@ public class SemanticListener extends decafBaseListener {
             operationList.addAll(tmp);
 
             // now make replacements
+
             tmp2 = new LinkedList<>();
             tmp2.addAll(operationList);
             for (Operation op : operationList) {
@@ -257,6 +282,10 @@ public class SemanticListener extends decafBaseListener {
                             tmp1.add(newOp);
                         } else tmp1.add(opInterno);
                     }
+                    if (operationList.size() == 1) {
+                        System.out.println("tmp1 es " + tmp1.toString());
+                        finalType = tmp1.get(0).getType();
+                    }
                     tmp1.remove(op);
                     tmp2.clear();
                     tmp2.addAll(tmp1);
@@ -269,10 +298,38 @@ public class SemanticListener extends decafBaseListener {
             // check for flag
             if (operationList.size() == 0) {
                 stop = true;
-                System.out.println("last operation is: " + operationList.toString());
+                if (finalType.equals("illegal")) {
+                    semanticErrorsList.add("Expression <strong>" + ctx.getText() + "</strong> " +
+                            "is illegal.");
+                }
+                System.out.println("type is " + finalType);
             }
         }
         System.out.println("printing after while " + operationList.toString());
+        return finalType;
+    }
+
+    @Override
+    public void exitStatement(decafParser.StatementContext ctx) {
+        String typeOf = "";
+        if (ctx.methodCall() != null) {
+            System.out.println("is method from stmt");
+        } else {
+            typeOf = getTypeOfExpression(ctx);
+        }
+
+        System.out.println("printing statement from exitStatement " + ctx.getText());
+        if (ctx.location() != null) {
+            for (VarElement ve : varList) {
+                if (ve.getID().equals(ctx.location().getText())) {
+                    if (ve.getVarType().equals(typeOf)) {
+                        System.out.println("types matched");
+                    } else if (!typeOf.equals("") && !ve.getVarType().equals(typeOf)) {
+                        System.out.println("types didnt match");
+                    }
+                }
+            }
+        }
     }
 
     public String typeSystemOperations(String operator, String[] types) {
@@ -367,6 +424,14 @@ public class SemanticListener extends decafBaseListener {
                 }
             } else {
                 // TODO didnt find a method but the expression can be an operation
+                if (ctx.expression() != null) {
+                    System.out.println("operating " + ctx.expression().getText());
+                    System.out.println("calculating type " + ctx.getText());
+//                    operateExpression(ctx.expression());
+//                    String opType = getTypeOfExpression(ctx);
+//                    System.out.println("type of expression from location = expression, location: " + ctx.location().getText()
+//                            + ctx.expression().getText() + " is: " + opType);
+                }
             }
         }
 
