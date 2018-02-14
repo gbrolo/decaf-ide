@@ -420,6 +420,19 @@ public class SemanticListener extends decafBaseListener {
 
             System.out.println("the return expression is: " + returnVal);
 
+            if (ctx.expressionA().expression() != null) {
+                System.out.println("LA EXPRESION EN RETURN ES " + ctx.expressionA().expression().getText());
+                operateExpression(ctx.expressionA().expression());
+                String opType = getTypeOfExpression(ctx);
+
+                if (!opType.equals(currentMethodContext.getType())) {
+                    semanticErrorsList.add("Method <strong>" + currentMethodContext.getFirm() + "</strong> " +
+                            "is returning an invalid type. <br>Exprecting <strong>" + currentMethodContext.getType() + "" +
+                            "</strong>, got <strong>"
+                            + opType + "</strong>");
+                }
+            }
+
             if (currentMethodContext.getType().equals("void")) {
                 // should not return nothing
                 semanticErrorsList.add("Method <strong>" + currentMethodContext.getFirm() + "</strong> " +
