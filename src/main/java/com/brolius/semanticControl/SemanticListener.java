@@ -418,6 +418,8 @@ public class SemanticListener extends decafBaseListener {
             String[] lineSplit = ctx.getText().replace(";", "").split("return");
             String returnVal = lineSplit[lineSplit.length-1];
 
+            System.out.println("the return expression is: " + returnVal);
+
             if (currentMethodContext.getType().equals("void")) {
                 // should not return nothing
                 semanticErrorsList.add("Method <strong>" + currentMethodContext.getFirm() + "</strong> " +
@@ -476,9 +478,16 @@ public class SemanticListener extends decafBaseListener {
             }
         }
 
-        // TODO if
-        if (ctx.getText().contains("if(")) {
-            System.out.println("found if statement");
+        // if and while
+        if (ctx.getText().contains("if(") || ctx.getText().contains("while(")){
+            System.out.println("found if or while statement");
+            operateExpression(ctx.expression());
+            String opType = getTypeOfExpression(ctx);
+            System.out.println("type inside if or while is " + opType);
+            if (!opType.equals("boolean")) {
+                semanticErrorsList.add("Expression <strong>" + ctx.expression().getText() + "</strong> is not " +
+                        "of type boolean. Found type <i>" + opType + "</i>.");
+            }
         }
     }
 
