@@ -133,6 +133,7 @@ public class SemanticListener extends decafBaseListener {
                 for (VarElement ve : varList) {
                     if (ve.getID().equals(operation)) {
                         isNotAVar = false;
+                        type = ve.getVarType();
                         break;
                     }
                 }
@@ -154,6 +155,10 @@ public class SemanticListener extends decafBaseListener {
                 }
 
                 if (!type.equals("")) {
+                    if (operationList.size() == 0) {
+                        Operation newOp = new Operation(operation, type);
+                        operationList.add(newOp);
+                    }
                     // make replacement in list
                     List<Operation> tmp = new LinkedList<>();
                     //System.out.println("operationList antes " + operationList.toString());
@@ -177,7 +182,12 @@ public class SemanticListener extends decafBaseListener {
                     operationList.clear();
                     operationList.addAll(tmp);
                     //System.out.println("operationList despues de llenarla " + operationList.toString());
+                } else {
+                    Operation newOp = new Operation(operation, type);
+                    operationList.add(newOp);
                 }
+            } else if (getNumberOfOperators(operation) == 0) {
+                System.out.println("no operadores");
             }
         } else {
             System.out.println(operationList.toString());
@@ -211,7 +221,9 @@ public class SemanticListener extends decafBaseListener {
                         tmp1.add(newOp);
                     } else tmp1.add(opInterno);
                 }
-                tmp1.remove(op);
+                if (tmp1.size() != 1) {
+                    tmp1.remove(op);
+                }
                 tmp2.clear();
                 tmp2.addAll(tmp1);
             }
@@ -223,7 +235,8 @@ public class SemanticListener extends decafBaseListener {
         for (VarElement ve : varList) {
             List<Operation> tmp = new LinkedList<>();
             for (Operation op : operationList) {
-                if (op.getOperation().contains(ve.getID()) && ve.getContext().equals(currentMethodContext)) {
+                if (op.getOperation().contains(ve.getID()) && ve.getContext().equals(currentMethodContext)
+                        && (!op.getOperation().matches("(boolean||int||char)"))) {
                     String newOperation = op.getOperation().replace(ve.getID(), ve.getVarType());
                     Operation newOp = new Operation(newOperation, op.getType());
                     tmp.add(newOp);
@@ -269,7 +282,13 @@ public class SemanticListener extends decafBaseListener {
 
                     Operation newOperation = new Operation(operation, typeOfOperation);
                     tmp.add(newOperation);
-                } else tmp.add(op);
+                } else {
+                    if (operation.matches("\\((boolean||int||char)\\)")) {
+                        Operation newOperation =
+                                new Operation(operation, operation.replace("(", "").replace(")",""));
+                        tmp.add(newOperation);
+                    }else tmp.add(op);
+                }
             }
 
             operationList.clear();
@@ -339,10 +358,12 @@ public class SemanticListener extends decafBaseListener {
                     if (ve.getVarType().equals(typeOf)) {
                         System.out.println("types matched");
                     } else if (!ve.getVarType().equals(typeOf)) {
-                        if (!typeOf.equals("")) {
-                            System.out.println("types didnt match");
-                            semanticErrorsList.add("Types don't match at <strong>" + ctx.getText() + "</strong> <i>" +
-                                    ve.getVarType() + "</i> is not equal to </i><i>" + typeOf + "</i>");
+                        if (typeOf != null) {
+                            if (!typeOf.equals("")) {
+                                System.out.println("types didnt match");
+                                semanticErrorsList.add("Types don't match at <strong>" + ctx.getText() + "</strong> <i>" +
+                                        ve.getVarType() + "</i> is not equal to </i><i>" + typeOf + "</i>");
+                            }
                         }
                     }
                 }
