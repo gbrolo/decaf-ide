@@ -1,0 +1,9 @@
+class StructOperations {
+    struct mStruct {
+        int gato;
+    }
+
+    void main() {
+
+    }
+}

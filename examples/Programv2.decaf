@@ -1,4 +1,8 @@
-class Program {
+class Test {
+    int func(int var) {
+        return var;
+    }
+
     void main() {
         //declaracion de variables
         int var1;
