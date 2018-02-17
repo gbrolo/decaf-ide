@@ -625,8 +625,32 @@ public class SemanticListener extends decafBaseListener {
 
         // verify if method call is valid, this means if the method has been correctly declared before
         boolean isMethodDeclared = false;
+        List<decafParser.ArgContext> argList = ctx.arg1().arg2().arg();
         for (MethodElement listMethod : methodFirms) {
-            if (listMethod.getFirm().equals(firm)) { isMethodDeclared = true; break; }
+            if (listMethod.getFirm().equals(firm)) {
+                isMethodDeclared = true;
+                // verify that arguments match the type of the parameters in method
+                int i = 0;
+                for (decafParser.ParameterContext pc : listMethod.getArgs()) {
+                    System.out.println("PARAMETER TYPE IS: " + pc.parameterType().getText());
+                    System.out.println("ARG at i = " + i + " is: " + argList.get(i).getText());
+
+                    String argType = "";
+                    for (VarElement ve : varList) {
+                        if (ve.getID().equals(argList.get(i).getText())) {
+                            argType = ve.getVarType();
+                        }
+                    }
+
+                    if (!pc.parameterType().getText().equals(argType)) {
+                        semanticErrorsList.add("Parameter " + (i+1) + " type <strong>" + pc.parameterType().getText()
+                                + "</strong> in " + firm + " does not match <br>argument type <strong>" + argType
+                                + "</strong> in method call.");
+                    }
+                    i++;
+                }
+                break;
+            }
         }
 
         if (!isMethodDeclared) { semanticErrorsList.add("Can't make call to undeclared method " + firm); }
