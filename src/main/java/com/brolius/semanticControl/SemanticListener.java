@@ -352,23 +352,44 @@ public class SemanticListener extends decafBaseListener {
         }
 
         System.out.println("printing statement from exitStatement " + ctx.getText());
+
         if (ctx.location() != null) {
-            for (VarElement ve : varList) {
-                if (ve.getID().equals(ctx.location().getText())) {
-                    if (ve.getVarType().equals(typeOf)) {
-                        System.out.println("types matched");
-                    } else if (!ve.getVarType().equals(typeOf)) {
-                        if (typeOf != null) {
-                            if (!typeOf.equals("")) {
-                                System.out.println("types didnt match");
-                                semanticErrorsList.add("Types don't match at <strong>" + ctx.getText() + "</strong> <i>" +
-                                        ve.getVarType() + "</i> is not equal to </i><i>" + typeOf + "</i>");
+            if (ctx.location().location() != null) {
+                for (VarElement ve : varList) {
+                    if (ve.getID().equals(ctx.location().location().getText())) {
+                        if (ve.getVarType().equals(typeOf)) {
+                            System.out.println("types matched");
+                        } else if (!ve.getVarType().equals(typeOf)) {
+                            if (typeOf != null) {
+                                if (!typeOf.equals("")) {
+                                    System.out.println("types didnt match");
+                                    semanticErrorsList.add("Types don't match at <strong>" + ctx.getText() + "</strong> <i>" +
+                                            ve.getVarType() + "</i> is not equal to </i><i>" + typeOf + "</i>");
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                for (VarElement ve : varList) {
+                    if (ve.getID().equals(ctx.location().getText())) {
+                        if (ve.getVarType().equals(typeOf)) {
+                            System.out.println("types matched");
+                        } else if (!ve.getVarType().equals(typeOf)) {
+                            if (typeOf != null) {
+                                if (!typeOf.equals("")) {
+                                    System.out.println("types didnt match");
+                                    semanticErrorsList.add("Types don't match at <strong>" + ctx.getText() + "</strong> <i>" +
+                                            ve.getVarType() + "</i> is not equal to </i><i>" + typeOf + "</i>");
+                                }
                             }
                         }
                     }
                 }
             }
         }
+
+
     }
 
     public String typeSystemOperations(String operator, String[] types) {
