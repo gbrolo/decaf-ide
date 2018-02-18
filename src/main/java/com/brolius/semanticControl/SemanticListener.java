@@ -556,7 +556,9 @@ public class SemanticListener extends decafBaseListener {
                 // the location exists
                 isLocationDefined = true;
                 break;
-            } else if ((listVar.getID().equals(ID)) && (listVar.getContext().getFirm().equals("global"))) {
+            } else if ((listVar.getID().equals(ID)) && (
+                    (listVar.getContext().getFirm().equals("global")) || (listVar.getContext().getType().equals("struct"))
+                    )) {
                 // the location refers to a global variable
                 isLocationDefined = true;
                 break;
@@ -654,6 +656,53 @@ public class SemanticListener extends decafBaseListener {
         }
 
         if (!isMethodDeclared) { semanticErrorsList.add("Can't make call to undeclared method " + firm); }
+    }
+
+    @Override
+    public void enterStructDeclaration(decafParser.StructDeclarationContext ctx) {
+        String firm = "";
+        List<decafParser.ParameterContext> args = new LinkedList<>();
+
+        if (ctx.ID() != null) {
+            firm = ctx.ID().getText();
+        }
+
+        MethodElement newMethod = new MethodElement("struct", firm, args);
+        currentMethodContext = newMethod;
+        //System.out.println("nuevo metodo " + firm);
+        //System.out.println(methodFirms.toString());
+
+        boolean foundMethod = false;
+
+        for (MethodElement listMethod : methodFirms) {
+            if (listMethod.equals(newMethod)) {
+                semanticErrorsList.add("Struct " + firm + " has " +
+                        "already been declared.");
+                foundMethod = true;
+                break;
+            }
+        }
+
+        if (!foundMethod) {
+            methodFirms.add(newMethod);
+        }
+
+        // now check with vars
+        VarElement newVar = new VarElement("struct", firm, newMethod);
+        boolean foundVar = false;
+
+        for (VarElement ve : varList) {
+            if (ve.equals(newVar)) {
+                semanticErrorsList.add("Struct " + firm + " has " +
+                        "already been declared.");
+                foundVar = true;
+                break;
+            }
+        }
+
+        if (!foundVar) {
+            varList.add(newVar);
+        }
     }
 
     @Override

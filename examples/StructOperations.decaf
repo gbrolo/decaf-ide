@@ -1,9 +1,14 @@
 class StructOperations {
-    struct mStruct {
-        int gato;
+    struct Cat {
+        int eyes;
+        int legs;
+        int paws;
+        int age;
+        char breed;
+        boolean isAdopted;
     }
 
     void main() {
-
+        Cat.eyes = 2;
     }
 }
