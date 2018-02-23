@@ -441,16 +441,30 @@ public class SemanticListener extends decafBaseListener {
 
             System.out.println("the return expression is: " + returnVal);
 
-            if (ctx.expressionA().expression() != null) {
-                System.out.println("LA EXPRESION EN RETURN ES " + ctx.expressionA().expression().getText());
-                operateExpression(ctx.expressionA().expression());
-                String opType = getTypeOfExpression(ctx);
+            if (ctx.expressionA() != null) {
+                if (ctx.expressionA().expression() != null) {
+                    System.out.println("LA EXPRESION EN RETURN ES " + ctx.expressionA().expression().getText());
+                    operateExpression(ctx.expressionA().expression());
+                    // check if it is a method call
+                    String opType = "";
+                    if (returnVal.contains("(")) {
+                        String[] split = returnVal.split("\\(");
+                        for (MethodElement me : methodFirms) {
+                            if (me.getFirm().equals(split[0])) {
+                                opType = me.getType();
+                                break;
+                            }
+                        }
+                    } else {
+                        opType = getTypeOfExpression(ctx);
+                    }
 
-                if (!opType.equals(currentMethodContext.getType())) {
-                    semanticErrorsList.add("Method <strong>" + currentMethodContext.getFirm() + "</strong> " +
-                            "is returning an invalid type. <br>Exprecting <strong>" + currentMethodContext.getType() + "" +
-                            "</strong>, got <strong>"
-                            + opType + "</strong>");
+                    if (!opType.equals(currentMethodContext.getType())) {
+                        semanticErrorsList.add("Method <strong>" + currentMethodContext.getFirm() + "</strong> " +
+                                "is returning an invalid type. <br>Exprecting <strong>" + currentMethodContext.getType() + "" +
+                                "</strong>, got <strong>"
+                                + opType + "</strong>");
+                    }
                 }
             }
 
@@ -662,6 +676,21 @@ public class SemanticListener extends decafBaseListener {
                     for (VarElement ve : varList) {
                         if (ve.getID().equals(argList.get(i).getText())) {
                             argType = ve.getVarType();
+                        }
+                    }
+
+                    if (argType.equals("")) {
+                        String argument = argList.get(i).getText();
+
+                        try {
+                            int parsedArg = Integer.parseInt(argument);
+                            argType = "int";
+                        } catch (Exception e) {
+                            if (argument.equals("true") || argument.equals("false")) {
+                                argType = "boolean";
+                            } else if (argument.length() == 1) {
+                                argType = "char";
+                            }
                         }
                     }
 
