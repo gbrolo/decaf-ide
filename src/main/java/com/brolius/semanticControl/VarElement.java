@@ -5,6 +5,7 @@ public class VarElement {
     private String ID;
     private int NUM;
     private boolean isArray;
+    private boolean isStruct;
     private String value;
 
     private MethodElement context;
@@ -41,4 +42,6 @@ public class VarElement {
     public MethodElement getContext() { return context; }
     public boolean isArray() { return isArray; }
     public String getValue() { return value; }
+    public boolean isStruct() { return isStruct; }
+    public void setStruct(boolean struct) { isStruct = struct; }
 }

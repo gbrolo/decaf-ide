@@ -9,13 +9,14 @@ class StructOperations {
     }
 
     struct Dog {
-            int eyes;
-            int legs;
-            int paws;
-            int age;
-            char breed;
-            boolean isAdopted;
-        }
+        int eyes;
+        int legs;
+        int paws;
+        int age;
+        char breed;
+        boolean isAdopted;
+        struct Cat id;
+    }
 
     void main() {
         Cat.eyes = 2;

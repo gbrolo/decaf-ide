@@ -355,8 +355,29 @@ public class SemanticListener extends decafBaseListener {
 
         if (ctx.location() != null) {
             if (ctx.location().location() != null) {
+                decafParser.LocationContext primeLocation = ctx.location();
+                decafParser.LocationContext lastLocation = ctx.location().location();
+                boolean stopIterationOnLocations = false;
+
+                while (!stopIterationOnLocations) {
+                    if (lastLocation.location() != null) {
+                        primeLocation = lastLocation;
+                        decafParser.LocationContext tmpLocation = lastLocation.location();
+                        lastLocation = tmpLocation;
+                    } else {
+                        stopIterationOnLocations = true;
+                    }
+                }
+
+                // TODO
+                // TODO important!
+                // TODO get Type of primeLocation
+                // TODO keep track of context for primeLocation
+                // TODO only if context of primeLocation is the previous location of primeLocation, then assign type
+                String primeLocId = primeLocation.getText();
+
                 for (VarElement ve : varList) {
-                    if (ve.getID().equals(ctx.location().location().getText())) {
+                    if (ve.getID().equals(lastLocation.getText()) && ve.getVarType().equals(primeLocation.getText())) {
                         if (ve.getVarType().equals(typeOf)) {
                             System.out.println("types matched");
                         } else if (!ve.getVarType().equals(typeOf)) {
@@ -610,9 +631,16 @@ public class SemanticListener extends decafBaseListener {
         String varType = "";    // type
         String ID = "";         // name of var
         String num = "";        // if var is array, num is the number of elements
+        boolean isStruct = false;
 
         if (ctx.varType() != null) {
-            varType = ctx.varType().getText();
+            // check if varDeclaration is made with a struct type
+            if (ctx.varType().ID() != null) {
+                isStruct = true;
+                varType = ctx.varType().ID().getText();
+            } else {
+                varType = ctx.varType().getText();
+            }
         }
 
         if (ctx.ID() != null) {
@@ -625,6 +653,7 @@ public class SemanticListener extends decafBaseListener {
 
         // Check if variable has already been declared in the same context
         VarElement newVar = new VarElement(varType, ID, currentMethodContext);
+        newVar.setStruct(isStruct);
         if (!num.equals("")) {
             newVar.setNUM(num);
             if (Integer.parseInt(num) == 0) {
