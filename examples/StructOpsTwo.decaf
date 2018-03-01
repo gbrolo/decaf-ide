@@ -14,8 +14,9 @@ class StructOpsTwo {
     }
 
     void main() {
-        //Dog.id = 1;
-        Dog.owner.id = 2;
-        Dog.owner.country.id = 3;
+        struct Dog dog;
+        //dog.id = 1;
+        //dog.owner.id = 2;
+        //dog.owner.country.id = 3;
     }
 }

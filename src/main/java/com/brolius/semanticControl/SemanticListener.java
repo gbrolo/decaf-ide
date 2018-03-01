@@ -375,9 +375,26 @@ public class SemanticListener extends decafBaseListener {
                 // TODO keep track of context for primeLocation
                 // TODO only if context of primeLocation is the previous location of primeLocation, then assign type
                 String primeLocId = primeLocation.getText();
+                String[] primeLocSplits = primeLocId.split("\\.");
+                primeLocId = primeLocSplits[0];
+                String structType = "";
 
                 for (VarElement ve : varList) {
-                    if (ve.getID().equals(lastLocation.getText()) && ve.getVarType().equals(primeLocation.getText())) {
+                    if (ve.getID().equals(primeLocId)) {
+                        structType = ve.getVarType();
+                    }
+                }
+
+                List<VarElement> primeLocationVars = new LinkedList<>();
+
+                for (VarElement ve : varList) {
+                    if (ve.getContext().getFirm().equals(structType)) {
+                        primeLocationVars.add(ve);
+                    }
+                }
+
+                for (VarElement ve : primeLocationVars) {
+                    if (ve.getID().equals(lastLocation.getText())) {
                         if (ve.getVarType().equals(typeOf)) {
                             System.out.println("types matched");
                         } else if (!ve.getVarType().equals(typeOf)) {
