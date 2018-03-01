@@ -494,7 +494,16 @@ public class SemanticListener extends decafBaseListener {
                             }
                         }
                     } else {
-                        opType = getTypeOfExpression(ctx);
+                        try {
+                            int returnInt = Integer.parseInt(returnVal);
+                            opType = "int";
+                        } catch (Exception e) {
+                            if (returnVal.matches("'.'")) {
+                                opType = "char";
+                            } else {
+                                opType = getTypeOfExpression(ctx);
+                            }
+                        }
                     }
 
                     if (!opType.equals(currentMethodContext.getType())) {
@@ -727,6 +736,7 @@ public class SemanticListener extends decafBaseListener {
 
                     if (argType.equals("")) {
                         String argument = argList.get(i).getText();
+                        System.out.println(argument);
 
                         try {
                             int parsedArg = Integer.parseInt(argument);
@@ -734,7 +744,7 @@ public class SemanticListener extends decafBaseListener {
                         } catch (Exception e) {
                             if (argument.equals("true") || argument.equals("false")) {
                                 argType = "boolean";
-                            } else if (argument.length() == 1) {
+                            } else if (argument.matches("'.'")) {
                                 argType = "char";
                             }
                         }
