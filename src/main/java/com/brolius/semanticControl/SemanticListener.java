@@ -51,147 +51,162 @@ public class SemanticListener extends decafBaseListener {
 
         String operation = ctx.getText();
 
-        if (!operation.contains("(")) {
-            if (getNumberOfOperators(operation) == 1) {
-                String operator = "";
+        // TODO check this for the future in case something goes wrong
+        // evaluate if operation is possible methodcall
+        if (operation.matches("(.)*[(](.)*[)]")) {
+            // it has methodcall form
+            String type = "";
+            String[] split = operation.split("\\(");
+            for (MethodElement me : methodFirms) {
+                if (me.getFirm().equals(split[0])) {
+                    type = me.getType();
+                }
+            }
 
-                if (operation.contains("+")) { operator =  "+"; }
-                if (operation.contains("-")) { operator =  "-"; }
-                if (operation.contains("/")) { operator =  "/"; }
-                if (operation.contains("*")) { operator =  "*"; }
-                if (operation.contains("%")) { operator =  "%"; }
-                if (operation.contains("&&")) { operator =  "&&"; }
-                if (operation.contains("||")) { operator =  "||"; }
-                if (operation.contains("==")) { operator =  "=="; }
-                if (operation.contains("!=")) { operator =  "!="; }
-                if (operation.contains("<")) { operator =  "<"; }
-                if (operation.contains("<=")) { operator =  "<="; }
-                if (operation.contains(">")) { operator =  ">"; }
-                if (operation.contains(">=")) { operator =  ">="; }
+            operationList.add(new Operation(type, type));
+        } else {
+            if (!operation.contains("(")) {
+                if (getNumberOfOperators(operation) == 1) {
+                    String operator = "";
 
-                String[] splits = operation.split("\\+|-|\\*|/|%|&&|\\|\\||==|!=|<|<=|>|>=");
-                String[] splitsTypes = new String[splits.length];
+                    if (operation.contains("+")) { operator =  "+"; }
+                    if (operation.contains("-")) { operator =  "-"; }
+                    if (operation.contains("/")) { operator =  "/"; }
+                    if (operation.contains("*")) { operator =  "*"; }
+                    if (operation.contains("%")) { operator =  "%"; }
+                    if (operation.contains("&&")) { operator =  "&&"; }
+                    if (operation.contains("||")) { operator =  "||"; }
+                    if (operation.contains("==")) { operator =  "=="; }
+                    if (operation.contains("!=")) { operator =  "!="; }
+                    if (operation.contains("<")) { operator =  "<"; }
+                    if (operation.contains("<=")) { operator =  "<="; }
+                    if (operation.contains(">")) { operator =  ">"; }
+                    if (operation.contains(">=")) { operator =  ">="; }
 
-                int i = 0;
-                for (String str : splits) {
-                    // check for variable type
+                    String[] splits = operation.split("\\+|-|\\*|/|%|&&|\\|\\||==|!=|<|<=|>|>=");
+                    String[] splitsTypes = new String[splits.length];
+
+                    int i = 0;
+                    for (String str : splits) {
+                        // check for variable type
+                        for (VarElement ve : varList) {
+                            if (ve.getID().equals(str) && ve.getContext().equals(currentMethodContext)) {
+                                splitsTypes[i] = ve.getVarType();
+                                break;
+                            }
+                        }
+
+                        // check for method type
+                        if (splitsTypes[i] == null) {
+                            for (MethodElement me : methodFirms) {
+                                if (me.getFirm().equals(str)) {
+                                    splitsTypes[i] = me.getType();
+                                    break;
+                                }
+                            }
+                        }
+
+                        // check for type of literal
+                        if (splitsTypes[i] == null) {
+                            if (str.equals("true") || str.equals("false")) {
+                                // bool_literal
+                                splitsTypes[i] = "boolean";
+                            } else {
+                                // int_literal
+                                try {
+                                    int parse = Integer.parseInt(str);
+                                    splitsTypes[i] = "int";
+                                } catch (Exception e) {
+                                    // its a char_literal
+                                    splitsTypes[i] = "char";
+                                }
+                            }
+                        }
+                        i++;
+                    }
+
+                    // now we have types and operator
+                    // method that returns type of operation
+                    String operationType = typeSystemOperations(operator, splitsTypes);
+                    if (operationType.equals("illegal")) {
+                        semanticErrorsList.add("Illegal operation <i>" + operation + "</i>, <strong>"
+                                + splitsTypes[0] + operator
+                                + splitsTypes[1] + "</strong>");
+                    } else {
+                        operationList.add(new Operation(operation, operationType));
+                    }
+
+                    // TODO replace type in operations list elements
+
+                } else if (getNumberOfOperators(operation) > 1){
+                    operationList.add(new Operation(operation));
+                } else if (getNumberOfOperators(operation) < 1) {
+                    String type = "";
+                    boolean isNotAVar = true;
+
                     for (VarElement ve : varList) {
-                        if (ve.getID().equals(str) && ve.getContext().equals(currentMethodContext)) {
-                            splitsTypes[i] = ve.getVarType();
+                        if (ve.getID().equals(operation)) {
+                            isNotAVar = false;
+                            type = ve.getVarType();
                             break;
                         }
                     }
 
-                    // check for method type
-                    if (splitsTypes[i] == null) {
-                        for (MethodElement me : methodFirms) {
-                            if (me.getFirm().equals(str)) {
-                                splitsTypes[i] = me.getType();
-                                break;
-                            }
-                        }
-                    }
-
-                    // check for type of literal
-                    if (splitsTypes[i] == null) {
-                        if (str.equals("true") || str.equals("false")) {
+                    if (isNotAVar) {
+                        if (operation.equals("true") || operation.equals("false")) {
                             // bool_literal
-                            splitsTypes[i] = "boolean";
+                            type = "boolean";
                         } else {
                             // int_literal
                             try {
-                                int parse = Integer.parseInt(str);
-                                splitsTypes[i] = "int";
+                                int parse = Integer.parseInt(operation);
+                                type = "int";
                             } catch (Exception e) {
                                 // its a char_literal
-                                splitsTypes[i] = "char";
+                                type = "char";
                             }
                         }
                     }
-                    i++;
-                }
 
-                // now we have types and operator
-                // method that returns type of operation
-                String operationType = typeSystemOperations(operator, splitsTypes);
-                if (operationType.equals("illegal")) {
-                    semanticErrorsList.add("Illegal operation <i>" + operation + "</i>, <strong>"
-                            + splitsTypes[0] + operator
-                            + splitsTypes[1] + "</strong>");
-                } else {
-                    operationList.add(new Operation(operation, operationType));
-                }
-
-                // TODO replace type in operations list elements
-
-            } else if (getNumberOfOperators(operation) > 1){
-                operationList.add(new Operation(operation));
-            } else if (getNumberOfOperators(operation) < 1) {
-                String type = "";
-                boolean isNotAVar = true;
-
-                for (VarElement ve : varList) {
-                    if (ve.getID().equals(operation)) {
-                        isNotAVar = false;
-                        type = ve.getVarType();
-                        break;
-                    }
-                }
-
-                if (isNotAVar) {
-                    if (operation.equals("true") || operation.equals("false")) {
-                        // bool_literal
-                        type = "boolean";
-                    } else {
-                        // int_literal
-                        try {
-                            int parse = Integer.parseInt(operation);
-                            type = "int";
-                        } catch (Exception e) {
-                            // its a char_literal
-                            type = "char";
+                    if (!type.equals("")) {
+                        if (operationList.size() == 0) {
+                            Operation newOp = new Operation(operation, type);
+                            operationList.add(newOp);
                         }
-                    }
-                }
-
-                if (!type.equals("")) {
-                    if (operationList.size() == 0) {
+                        // make replacement in list
+                        List<Operation> tmp = new LinkedList<>();
+                        //System.out.println("operationList antes " + operationList.toString());
+                        for (Operation op : operationList) {
+                            //System.out.println("entre a verificar la op " + op.toString());
+                            String opOperation = op.getOperation();
+                            String opType = op.getType();
+                            if (opOperation.contains(operation)) {
+                                //System.out.println("la operacion contiene la sub");
+                                opOperation = opOperation.replace(operation, type);
+                                //System.out.println("reemplazo " + opOperation);
+                                Operation newOp = new Operation(opOperation, opType);
+                                //System.out.println("Reemplazo a agregar " + newOp.toString());
+                                tmp.add(newOp);
+                            } else {
+                                //System.out.println("No la contiene, copio lo anterior " + op.toString());
+                                tmp.add(op);
+                            }
+                        }
+                        //System.out.println("operationList antes de clear " + operationList.toString());
+                        operationList.clear();
+                        operationList.addAll(tmp);
+                        //System.out.println("operationList despues de llenarla " + operationList.toString());
+                    } else {
                         Operation newOp = new Operation(operation, type);
                         operationList.add(newOp);
                     }
-                    // make replacement in list
-                    List<Operation> tmp = new LinkedList<>();
-                    //System.out.println("operationList antes " + operationList.toString());
-                    for (Operation op : operationList) {
-                        //System.out.println("entre a verificar la op " + op.toString());
-                        String opOperation = op.getOperation();
-                        String opType = op.getType();
-                        if (opOperation.contains(operation)) {
-                            //System.out.println("la operacion contiene la sub");
-                            opOperation = opOperation.replace(operation, type);
-                            //System.out.println("reemplazo " + opOperation);
-                            Operation newOp = new Operation(opOperation, opType);
-                            //System.out.println("Reemplazo a agregar " + newOp.toString());
-                            tmp.add(newOp);
-                        } else {
-                            //System.out.println("No la contiene, copio lo anterior " + op.toString());
-                            tmp.add(op);
-                        }
-                    }
-                    //System.out.println("operationList antes de clear " + operationList.toString());
-                    operationList.clear();
-                    operationList.addAll(tmp);
-                    //System.out.println("operationList despues de llenarla " + operationList.toString());
-                } else {
-                    Operation newOp = new Operation(operation, type);
-                    operationList.add(newOp);
+                } else if (getNumberOfOperators(operation) == 0) {
+                    System.out.println("no operadores");
                 }
-            } else if (getNumberOfOperators(operation) == 0) {
-                System.out.println("no operadores");
+            } else {
+                System.out.println(operationList.toString());
+                operationList.add(new Operation(operation));
             }
-        } else {
-            System.out.println(operationList.toString());
-            operationList.add(new Operation(operation));
         }
     }
 
@@ -204,7 +219,7 @@ public class SemanticListener extends decafBaseListener {
         }
     }
 
-    public String getTypeOfExpression(decafParser.StatementContext ctx) {
+    public String getTypeOfExpression(String ctx) {
         String finalType = "";
         //TODO add verification for methods
         List<Operation> tmp2 = new LinkedList<>();
@@ -277,7 +292,7 @@ public class SemanticListener extends decafBaseListener {
 
                     if (typeOfOperation.equals("illegal")) {
                         semanticErrorsList.add("Expression <strong>" + operation + "</strong> is an invalid expression. <br>At <strong>"+
-                                ctx.getText() + "</strong>");
+                                ctx + "</strong>");
                     }
 
                     Operation newOperation = new Operation(operation, typeOfOperation);
@@ -332,7 +347,7 @@ public class SemanticListener extends decafBaseListener {
             if (operationList.size() == 0) {
                 stop = true;
                 if (finalType.equals("illegal")) {
-                    semanticErrorsList.add("Expression <strong>" + ctx.getText() + "</strong> " +
+                    semanticErrorsList.add("Expression <strong>" + ctx + "</strong> " +
                             "is illegal.");
                 }
                 System.out.println("type is " + finalType);
@@ -348,7 +363,7 @@ public class SemanticListener extends decafBaseListener {
         if (ctx.methodCall() != null) {
             System.out.println("is method from stmt");
         } else {
-            typeOf = getTypeOfExpression(ctx);
+            typeOf = getTypeOfExpression(ctx.getText());
         }
 
         System.out.println("printing statement from exitStatement " + ctx.getText());
@@ -477,6 +492,11 @@ public class SemanticListener extends decafBaseListener {
             String[] lineSplit = ctx.getText().replace(";", "").split("return");
             String returnVal = lineSplit[lineSplit.length-1];
 
+            if (returnVal.matches("[(](.)*[)]")) {
+                String rv = returnVal.replace("(", "").replace(")", "");
+                returnVal = rv;
+            }
+
             System.out.println("the return expression is: " + returnVal);
 
             if (ctx.expressionA() != null) {
@@ -501,14 +521,14 @@ public class SemanticListener extends decafBaseListener {
                             if (returnVal.matches("'.'")) {
                                 opType = "char";
                             } else {
-                                opType = getTypeOfExpression(ctx);
+                                opType = getTypeOfExpression(ctx.getText());
                             }
                         }
                     }
 
                     if (!opType.equals(currentMethodContext.getType())) {
                         semanticErrorsList.add("Method <strong>" + currentMethodContext.getFirm() + "</strong> " +
-                                "is returning an invalid type. <br>Exprecting <strong>" + currentMethodContext.getType() + "" +
+                                "is returning an invalid type. <br>Expecting <strong>" + currentMethodContext.getType() + "" +
                                 "</strong>, got <strong>"
                                 + opType + "</strong>");
                     }
@@ -577,7 +597,7 @@ public class SemanticListener extends decafBaseListener {
         if (ctx.getText().contains("if(") || ctx.getText().contains("while(")){
             System.out.println("found if or while statement");
             operateExpression(ctx.expression());
-            String opType = getTypeOfExpression(ctx);
+            String opType = getTypeOfExpression(ctx.getText());
             System.out.println("type inside if or while is " + opType);
             if (!opType.equals("boolean")) {
                 semanticErrorsList.add("Expression <strong>" + ctx.expression().getText() + "</strong> is not " +
@@ -732,6 +752,18 @@ public class SemanticListener extends decafBaseListener {
                         if (ve.getID().equals(argList.get(i).getText())) {
                             argType = ve.getVarType();
                         }
+                    }
+
+                    try {
+                        decafParser.ExpressionContext eCtx = argList.get(i).expression();
+                        String thing = eCtx.getText();
+                        operateExpression(eCtx);
+                        argType = getTypeOfExpression(eCtx.getText());
+                        if (argType == null) {
+                            argType = "";
+                        }
+                    } catch (Exception e) {
+                        argType = "";
                     }
 
                     if (argType.equals("")) {
