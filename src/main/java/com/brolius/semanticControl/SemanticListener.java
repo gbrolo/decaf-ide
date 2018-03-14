@@ -487,7 +487,21 @@ public class SemanticListener extends decafBaseListener {
     }
 
     @Override
+    public void enterBlock(decafParser.BlockContext ctx) {
+        if (ctx.varDeclaration() != null || ctx.statement() != null) {
+
+        }
+    }
+
+    @Override
     public void enterStatement(decafParser.StatementContext ctx) {
+//        if (!currentMethodContext.getType().equals("void")) {
+//            String txt = ctx.getText();
+//            if (!ctx.getText().contains("return")) {
+//                semanticErrorsList.add("Method is not returning " + currentMethodContext.getType() + " type.");
+//            }
+//        }
+
         if (ctx.getText().contains("return")) {
             String[] lineSplit = ctx.getText().replace(";", "").split("return");
             String returnVal = lineSplit[lineSplit.length-1];
@@ -544,6 +558,13 @@ public class SemanticListener extends decafBaseListener {
 
         // location = expression type
         if (ctx.location() != null && ctx.expression() != null) {
+            String txt = ctx.location().getText();
+            if (ctx.location().getText().matches("(.)*(\\[(.)*\\])")) {
+                // it is refering to an array[NUM] = something
+                if (!ctx.location().getText().matches("(.)*(\\[([0-9])*\\])")) {
+                    semanticErrorsList.add(ctx.location().getText() + " is not of type int.");
+                }
+            }
             // check first if the assign is a method call
             // check if its a method_call
             String operation = ctx.expression().getText();
@@ -700,11 +721,20 @@ public class SemanticListener extends decafBaseListener {
         // Check if variable has already been declared in the same context
         VarElement newVar = new VarElement(varType, ID, currentMethodContext);
         newVar.setStruct(isStruct);
+
         if (!num.equals("")) {
-            newVar.setNUM(num);
-            if (Integer.parseInt(num) == 0) {
+            try {
+                int numInt = Integer.parseInt(num);
+                if (!num.equals("")) {
+                    newVar.setNUM(num);
+                    if (numInt == 0) {
+                        semanticErrorsList.add("<strong>\"" + ID + "\"</strong> length " +
+                                "has to be bigger than 0.");
+                    }
+                }
+            } catch (Exception e){
                 semanticErrorsList.add("<strong>\"" + ID + "\"</strong> length " +
-                        "has to be bigger than 0.");
+                        "is not of type int");
             }
         }
 
@@ -740,6 +770,10 @@ public class SemanticListener extends decafBaseListener {
         List<decafParser.ArgContext> argList = ctx.arg1().arg2().arg();
         for (MethodElement listMethod : methodFirms) {
             if (listMethod.getFirm().equals(firm)) {
+                if (argList.size() != listMethod.getArgs().size()) {
+                    semanticErrorsList.add("Method call for <strong>" + firm + "</strong> has more parameters <br> than the method definition");
+                }
+
                 isMethodDeclared = true;
                 // verify that arguments match the type of the parameters in method
                 int i = 0;
@@ -881,6 +915,17 @@ public class SemanticListener extends decafBaseListener {
         if ((type.equals("void")) && firm.equals("main") && !args.isEmpty()) {
             foundMain = true;
             semanticErrorsList.add("'main' method can't have arguments.");
+        }
+
+        if (!type.equals("void")) {
+            if (ctx.block() != null) {
+                String txt = ctx.block().getText();
+                if (!ctx.block().getText().contains("return")) {
+                    semanticErrorsList.add("Method " + firm + " has no return expression.");
+                }
+            } else {
+                semanticErrorsList.add("Method " + firm + " has no return expression.");
+            }
         }
 
         // rules for other methods that are not 'main'
