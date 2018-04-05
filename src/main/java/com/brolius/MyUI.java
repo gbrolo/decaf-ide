@@ -30,7 +30,9 @@ import org.antlr.v4.runtime.tree.Tree;
 import org.antlr.v4.runtime.tree.Trees;
 
 import java.awt.*;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -114,6 +116,9 @@ public class MyUI extends UI {
                 //consolePanelLayout.addComponent(lbl1);
 
                 // SEMANTIC CONTROL ------------------------------------------------------------------------------------
+                /* TAC FILE GENERATION */
+                generateTACFile();
+
                 ParseTreeWalker walker = new ParseTreeWalker();
                 SemanticListener semanticListener = new SemanticListener(grammarParser);
                 walker.walk(semanticListener, grammarParseTree);
@@ -296,5 +301,17 @@ public class MyUI extends UI {
             }
         }
         return sb.toString();
+    }
+
+    private void generateTACFile() {
+        try {
+            File file = new File("decaf.tac");
+            if (file.exists()) {
+                file.delete();
+            }
+            file.createNewFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

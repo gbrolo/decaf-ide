@@ -1,0 +1,3 @@
+main:
+	BeginFunc N;
+	EndFunc;

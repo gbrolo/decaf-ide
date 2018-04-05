@@ -4,6 +4,7 @@ import com.brolius.antlr.decafBaseListener;
 import com.brolius.antlr.decafParser;
 import org.antlr.v4.runtime.TokenStream;
 
+import java.io.*;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -18,6 +19,10 @@ public class SemanticListener extends decafBaseListener {
     List<String> arithOperatorsList;
 
     private MethodElement currentMethodContext; // to check the current context of variable declarations and operations
+
+    private String tacIndent;
+    private List<String> branchVariables;
+    private int branchVariablesCount;
 
     public SemanticListener(decafParser parser) {
         this.parser = parser;
@@ -43,6 +48,9 @@ public class SemanticListener extends decafBaseListener {
         arithOperatorsList.add(">=");
 
         currentMethodContext = new MethodElement("void", "global", new LinkedList<>());
+
+        tacIndent = "";
+        branchVariables = new LinkedList<>();
     }
 
     public void operateExpression(decafParser.ExpressionContext ctx) {
@@ -384,11 +392,6 @@ public class SemanticListener extends decafBaseListener {
                     }
                 }
 
-                // TODO
-                // TODO important!
-                // TODO get Type of primeLocation
-                // TODO keep track of context for primeLocation
-                // TODO only if context of primeLocation is the previous location of primeLocation, then assign type
                 String primeLocId = primeLocation.getText();
                 String[] primeLocSplits = primeLocId.split("\\.");
                 primeLocId = primeLocSplits[0];
@@ -624,6 +627,44 @@ public class SemanticListener extends decafBaseListener {
                 semanticErrorsList.add("Expression <strong>" + ctx.expression().getText() + "</strong> is not " +
                         "of type boolean. Found type <i>" + opType + "</i>.");
             }
+
+            // TAC
+            if (ctx.getText().contains("if(")) {
+                /* Write to TAC file */
+                String branchVar1 = "_L"+String.valueOf(branchVariablesCount);
+                branchVariablesCount++;
+                branchVariables.add(branchVar1);
+                String branchVar2 = "_L"+String.valueOf(branchVariablesCount);
+                branchVariables.add(branchVar2);
+                branchVariablesCount++;
+
+                // TODO place code for condition
+                writeToTACFile(tacIndent + "Ifz " + "var " + "Goto " + branchVar1 + ";");
+                // TODO place here the code of succesfull if
+                writeToTACFile(tacIndent + "// TAC for success");
+                writeToTACFile(tacIndent + "Goto " + branchVar2 + ";");
+                writeToTACFile("\n" + tacIndent + branchVar1 + ":");
+                // TODO place here the else code
+                writeToTACFile(tacIndent + "// TAC for fail (else)");
+                writeToTACFile("\n" + tacIndent + branchVar2 + ":");
+            } else if (ctx.getText().contains("while(")) {
+                /* Write to TAC file */
+                String branchVar1 = "_L"+String.valueOf(branchVariablesCount);
+                branchVariablesCount++;
+                branchVariables.add(branchVar1);
+                String branchVar2 = "_L"+String.valueOf(branchVariablesCount);
+                branchVariables.add(branchVar2);
+                branchVariablesCount++;
+
+                writeToTACFile("\n" + tacIndent + branchVar1 + ":");
+                // TODO place code for condition
+                writeToTACFile(tacIndent +"// condition code here");
+                writeToTACFile(tacIndent + "Ifz " + "var " + "Goto " + branchVar2 + ";");
+                // TODO place code inside while here
+                writeToTACFile(tacIndent +"// while code here");
+                writeToTACFile(tacIndent + "Goto " + branchVar1 + ":");
+                writeToTACFile("\n" + tacIndent + branchVar2 + ":");
+            }
         }
     }
 
@@ -827,6 +868,11 @@ public class SemanticListener extends decafBaseListener {
             }
         }
 
+        // TAC Generation
+        writeToTACFile(tacIndent + "PushParam " + "paramVar" + ";");
+        writeToTACFile(tacIndent + "LCall _" + firm + ";");
+        writeToTACFile(tacIndent + "PopParams N;");
+
         if (!isMethodDeclared) { semanticErrorsList.add("Can't make call to undeclared method " + firm); }
     }
 
@@ -903,6 +949,10 @@ public class SemanticListener extends decafBaseListener {
                 currentMethodContext = new MethodElement(type, firm, args);
                 methodFirms.add(currentMethodContext); // add method to method list
                 System.out.println(ctx.getRuleContext().toString());
+                /* Write to TAC file */
+                writeToTACFile(tacIndent + firm + ":");
+                tacIndent = tacIndent + "\t";
+                writeToTACFile(tacIndent + "BeginFunc N;");
             } else {
                 semanticErrorsList.add("Method " + firm + " with arguments: " + args.toString() + " has" +
                         "already been declared.");
@@ -948,6 +998,10 @@ public class SemanticListener extends decafBaseListener {
 
             if (!foundMethod) {
                 methodFirms.add(newMethod);
+                /* Write to TAC file */
+                writeToTACFile(tacIndent + "_" + firm + ":");
+                tacIndent = tacIndent + "\t";
+                writeToTACFile(tacIndent + "BeginFunc N;");
             }
 
 //            if (!methodFirms.contains(newMethod)) { methodFirms.add(newMethod); } else {
@@ -957,10 +1011,27 @@ public class SemanticListener extends decafBaseListener {
         }
     }
 
+    @Override
+    public void exitMethodDeclaration(decafParser.MethodDeclarationContext ctx) {
+        writeToTACFile(tacIndent + "EndFunc;");
+        tacIndent = tacIndent.substring(0, tacIndent.length()-1);
+    }
+
     public List<String> getSemanticErrorsList() {
         // existance of 'main' method
         if (!foundMain) { semanticErrorsList.add("No 'main' method declared."); }
 
         return semanticErrorsList;
+    }
+
+    private void writeToTACFile(String line) {
+        try(FileWriter fw = new FileWriter("decaf.tac", true);
+            BufferedWriter bw = new BufferedWriter(fw);
+            PrintWriter out = new PrintWriter(bw))
+        {
+            out.println(line);
+        } catch (IOException e) {
+            //exception handling left as an exercise for the reader
+        }
     }
 }
