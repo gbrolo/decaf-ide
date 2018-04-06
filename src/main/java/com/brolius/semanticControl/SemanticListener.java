@@ -5,8 +5,7 @@ import com.brolius.antlr.decafParser;
 import org.antlr.v4.runtime.TokenStream;
 
 import java.io.*;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 public class SemanticListener extends decafBaseListener {
     private decafParser parser;
@@ -15,7 +14,7 @@ public class SemanticListener extends decafBaseListener {
     private List<String> semanticErrorsList; // list for semantic errors found
     private List<MethodElement> methodFirms; // a list for the found methods
     private List<VarElement> varList;        // a list for the variables
-    private List<Operation> operationList;   // list for operations found in expressions
+    private List<Operation> operationList, tmpOpList;   // list for operations found in expressions
     List<String> arithOperatorsList;
 
     private MethodElement currentMethodContext; // to check the current context of variable declarations and operations
@@ -24,6 +23,11 @@ public class SemanticListener extends decafBaseListener {
     private List<String> branchVariables;
     private int branchVariablesCount;
 
+    /** Temporary variables stuff **/
+    private int tempVarsCount;
+    private HashMap<String, String> tempVarsValues;         // Hashmap linking <expression, tempVar>
+    private String currentLocation;
+
     public SemanticListener(decafParser parser) {
         this.parser = parser;
         this.foundMain = false;
@@ -31,6 +35,8 @@ public class SemanticListener extends decafBaseListener {
         this.methodFirms = new LinkedList<>();
         this.varList = new LinkedList<>();
         this.operationList = new LinkedList<>();
+        this.tmpOpList = new LinkedList<>();
+        this.tempVarsValues = new HashMap<>();
 
         this.arithOperatorsList = new LinkedList<>();
         arithOperatorsList.add("+");
@@ -51,6 +57,8 @@ public class SemanticListener extends decafBaseListener {
 
         tacIndent = "";
         branchVariables = new LinkedList<>();
+        tempVarsCount = 0;
+        currentLocation = "_top_null";
     }
 
     public void operateExpression(decafParser.ExpressionContext ctx) {
@@ -142,13 +150,17 @@ public class SemanticListener extends decafBaseListener {
                                 + splitsTypes[1] + "</strong>");
                     } else {
                         operationList.add(new Operation(operation, operationType));
+                        tmpOpList.add(new Operation(operation, operationType));
                     }
 
                     // TODO replace type in operations list elements
 
                 } else if (getNumberOfOperators(operation) > 1){
                     operationList.add(new Operation(operation));
+                    tmpOpList.add(new Operation(operation));
                 } else if (getNumberOfOperators(operation) < 1) {
+                    //assignTemporals();
+
                     String type = "";
                     boolean isNotAVar = true;
 
@@ -561,6 +573,13 @@ public class SemanticListener extends decafBaseListener {
 
         // location = expression type
         if (ctx.location() != null && ctx.expression() != null) {
+            if (!ctx.location().getText().equals(currentLocation)) {
+                // this means there is a new location, so make the operations related to temporaries
+                assignTemporals();
+                writeAssignTAC();
+                currentLocation = ctx.location().getText();
+            }
+
             String txt = ctx.location().getText();
             if (ctx.location().getText().matches("(.)*(\\[(.)*\\])")) {
                 // it is refering to an array[NUM] = something
@@ -1013,8 +1032,13 @@ public class SemanticListener extends decafBaseListener {
 
     @Override
     public void exitMethodDeclaration(decafParser.MethodDeclarationContext ctx) {
+        assignTemporals();
+        if (!tempVarsValues.isEmpty()) {
+            writeAssignTAC();
+        }
         writeToTACFile(tacIndent + "EndFunc;");
         tacIndent = tacIndent.substring(0, tacIndent.length()-1);
+        this.tempVarsCount = 0;                 // reset counter
     }
 
     public List<String> getSemanticErrorsList() {
@@ -1032,6 +1056,102 @@ public class SemanticListener extends decafBaseListener {
             out.println(line);
         } catch (IOException e) {
             //exception handling left as an exercise for the reader
+        }
+    }
+
+    /**
+     * Alters temporal variables count (+1)
+     * @return the next temporary variable available
+     */
+    private String getNextTemp() {
+        String tempVar = "_t" + String.valueOf(tempVarsCount);
+        tempVarsCount++;
+        return tempVar;
+    }
+
+    private void assignTemporals() {
+        // Verify that tempVarsValues is empty
+        if (tempVarsValues.size() == 0) {
+            // Assign each operation a temporal variable
+            for (Operation o : tmpOpList) {
+                String tempToAdd = "";
+                if (tempVarsValues.size() == 0) {
+                    tempToAdd = "_top_assign";
+                } else {
+                    tempToAdd = getNextTemp();
+                }
+                tempVarsValues.put(tempToAdd, o.getOperation());
+            }
+
+            // Replace expressions with temporal variables inside other expressions
+            HashMap<String, String> tmpTempVarsValues = new HashMap<>();
+            tmpTempVarsValues.putAll(tempVarsValues);
+            final Set<String> expressions = tempVarsValues.keySet();
+            final Set<String> expressionsCopy = expressions;
+
+            for (String e : expressions) {
+                for (String ec : expressionsCopy) {
+                    if (!tempVarsValues.get(e).equals(tempVarsValues.get(ec))) {
+                        if (tempVarsValues.get(e).contains(tempVarsValues.get(ec))) {
+                            String tmpVal = tmpTempVarsValues.get(ec);
+                            String newExpression = tmpTempVarsValues.get(e).replace(tmpVal, ec);
+                            tmpTempVarsValues.replace(e, newExpression);
+                        }
+                    }
+                }
+            }
+            tempVarsValues = tmpTempVarsValues;
+        }
+    }
+
+    private void resetTemporalOperations() {
+        this.tempVarsValues = new HashMap<>();  // reset HashMap to map expressions with temp vars
+        this.tmpOpList.clear();
+    }
+
+    private void writeAssignTAC() {
+        // TODO order tempVarsValues so that _top_assign has first position
+        if (!tempVarsValues.isEmpty()) {
+            int t = tempVarsValues.size();
+            Queue<String> expsInOrder = new LinkedList<>();
+            expsInOrder.add("_top_assign");
+            String value = tempVarsValues.get("_top_assign");
+            tempVarsValues.remove("_top_assign");
+            Set<String> expressions = tempVarsValues.keySet();
+
+            for (String e : expressions) {
+                expsInOrder.add(e);
+            }
+
+            tempVarsValues.put("_top_assign", value);
+
+            List<String> out = new LinkedList<>();
+            List<String> toWriteList = new LinkedList<>();
+
+            // write all lines
+            for (int j = 0; j < t; j++) {
+                String e = expsInOrder.poll();
+                String exp = e;                     // expression
+                String var = tempVarsValues.get(e); // tmp var of expression
+
+                if (exp.equals("_top_assign")) exp = currentLocation;
+
+                String toWrite = tacIndent + exp + " = " + var + ";";
+                out.add(toWrite);
+
+                //writeToTACFile(toWrite);
+            }
+
+            for (int i = out.size()-1; i >= 0; i--) {
+                toWriteList.add(out.get(i));
+            }
+
+            for (String o : toWriteList) {
+                writeToTACFile(o);
+            }
+
+            // reset temporaries
+            resetTemporalOperations();
         }
     }
 }

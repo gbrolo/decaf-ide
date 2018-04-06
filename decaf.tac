@@ -1,3 +1,4 @@
 main:
 	BeginFunc N;
-	EndFunc;
+	_t0 = b+c;
+	a = _t0+d;
