@@ -27,6 +27,7 @@ public class SemanticListener extends decafBaseListener {
     private int tempVarsCount;
     private HashMap<String, String> tempVarsValues;         // Hashmap linking <expression, tempVar>
     private String currentLocation;
+    private List<decafParser.ExpressionContext> evaluatedExpressions;
 
     public SemanticListener(decafParser parser) {
         this.parser = parser;
@@ -36,6 +37,7 @@ public class SemanticListener extends decafBaseListener {
         this.varList = new LinkedList<>();
         this.operationList = new LinkedList<>();
         this.tmpOpList = new LinkedList<>();
+        this.evaluatedExpressions = new LinkedList<>();
         this.tempVarsValues = new HashMap<>();
 
         this.arithOperatorsList = new LinkedList<>();
@@ -192,6 +194,10 @@ public class SemanticListener extends decafBaseListener {
                         if (operationList.size() == 0) {
                             Operation newOp = new Operation(operation, type);
                             operationList.add(newOp);
+                            tmpOpList.add(newOp); // TODO check if this does not fuck anything
+                        } else if (tmpOpList.size() == 0) {
+                            Operation newOp = new Operation(operation, type);
+                            tmpOpList.add(newOp);
                         }
                         // make replacement in list
                         List<Operation> tmp = new LinkedList<>();
@@ -232,10 +238,12 @@ public class SemanticListener extends decafBaseListener {
 
     @Override
     public void enterExpression(decafParser.ExpressionContext ctx) {
-        if (ctx.methodCall() != null) {
-            System.out.println("is method");
-        } else {
-            operateExpression(ctx);
+        if (!evaluatedExpressions.contains(ctx)) {
+            if (ctx.methodCall() != null) {
+                System.out.println("is method");
+            } else {
+                operateExpression(ctx);
+            }
         }
     }
 
@@ -640,6 +648,14 @@ public class SemanticListener extends decafBaseListener {
         if (ctx.getText().contains("if(") || ctx.getText().contains("while(")){
             System.out.println("found if or while statement");
             operateExpression(ctx.expression());
+            evaluatedExpressions.add(ctx.expression());
+
+            if (ctx.expression().expression() != null) {
+                for (decafParser.ExpressionContext e : ctx.expression().expression()) {
+                    evaluatedExpressions.add(e);
+                }
+            }
+
             String opType = getTypeOfExpression(ctx.getText());
             System.out.println("type inside if or while is " + opType);
             if (!opType.equals("boolean")) {
@@ -647,8 +663,20 @@ public class SemanticListener extends decafBaseListener {
                         "of type boolean. Found type <i>" + opType + "</i>.");
             }
 
+            assignTemporals();
+            writeAssignTAC();
+
             // TAC
             if (ctx.getText().contains("if(")) {
+                List<decafParser.BlockContext> blocks = ctx.block();
+                boolean hasElse = false;
+
+                // if context has more than one block, it means that it has an else part,
+                // so we'll flag this for later
+                if (blocks.size() > 1) {
+                    hasElse = true;
+                }
+
                 /* Write to TAC file */
                 String branchVar1 = "_L"+String.valueOf(branchVariablesCount);
                 branchVariablesCount++;
@@ -657,14 +685,40 @@ public class SemanticListener extends decafBaseListener {
                 branchVariables.add(branchVar2);
                 branchVariablesCount++;
 
-                // TODO place code for condition
-                writeToTACFile(tacIndent + "Ifz " + "var " + "Goto " + branchVar1 + ";");
-                // TODO place here the code of succesfull if
-                writeToTACFile(tacIndent + "// TAC for success");
+                // code for condition
+                writeToTACFile(tacIndent + "Ifz " + getPreviousTemp() + " Goto " + branchVar1 + ";");
+                // code of succesfull if
+                //writeToTACFile(tacIndent + "// TAC for success");
+                List<decafParser.StatementContext> successStatements = blocks.get(0).statement();
+                for (decafParser.StatementContext s : successStatements) {
+                    if (!s.start.getText().equals(";")) {
+                        currentLocation = s.start.getText();
+                        operateExpression(s.expression());
+                        assignTemporals();
+                        writeAssignTAC();
+                        evaluatedExpressions.add(s.expression());
+                        currentLocation = "_top_null";
+                    }
+                }
+
                 writeToTACFile(tacIndent + "Goto " + branchVar2 + ";");
                 writeToTACFile("\n" + tacIndent + branchVar1 + ":");
-                // TODO place here the else code
-                writeToTACFile(tacIndent + "// TAC for fail (else)");
+
+                // else code
+                //writeToTACFile(tacIndent + "// TAC for fail (else)");
+                if (hasElse) {
+                    successStatements = blocks.get(1).statement();
+                    for (decafParser.StatementContext s : successStatements) {
+                        if (!s.start.getText().equals(";")) {
+                            currentLocation = s.start.getText();
+                            operateExpression(s.expression());
+                            assignTemporals();
+                            writeAssignTAC();
+                            evaluatedExpressions.add(s.expression());
+                            currentLocation = "_top_null";
+                        }
+                    }
+                }
                 writeToTACFile("\n" + tacIndent + branchVar2 + ":");
             } else if (ctx.getText().contains("while(")) {
                 /* Write to TAC file */
@@ -1039,6 +1093,7 @@ public class SemanticListener extends decafBaseListener {
         writeToTACFile(tacIndent + "EndFunc;");
         tacIndent = tacIndent.substring(0, tacIndent.length()-1);
         this.tempVarsCount = 0;                 // reset counter
+        evaluatedExpressions.clear();
     }
 
     public List<String> getSemanticErrorsList() {
@@ -1067,6 +1122,10 @@ public class SemanticListener extends decafBaseListener {
         String tempVar = "_t" + String.valueOf(tempVarsCount);
         tempVarsCount++;
         return tempVar;
+    }
+
+    private String getPreviousTemp() {
+        return "_t" + String.valueOf(tempVarsCount-1);
     }
 
     private void assignTemporals() {
@@ -1134,7 +1193,11 @@ public class SemanticListener extends decafBaseListener {
                 String exp = e;                     // expression
                 String var = tempVarsValues.get(e); // tmp var of expression
 
-                if (exp.equals("_top_assign")) exp = currentLocation;
+                if (!currentLocation.equals("_top_null")) {
+                    if (exp.equals("_top_assign")) exp = currentLocation;
+                } else {
+                    if (exp.equals("_top_assign")) exp = getNextTemp();
+                }
 
                 String toWrite = tacIndent + exp + " = " + var + ";";
                 out.add(toWrite);
