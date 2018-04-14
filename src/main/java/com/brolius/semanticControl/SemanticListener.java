@@ -647,27 +647,29 @@ public class SemanticListener extends decafBaseListener {
         // if and while
         if (ctx.getText().contains("if(") || ctx.getText().contains("while(")){
             System.out.println("found if or while statement");
-            operateExpression(ctx.expression());
-            evaluatedExpressions.add(ctx.expression());
 
-            if (ctx.expression().expression() != null) {
-                for (decafParser.ExpressionContext e : ctx.expression().expression()) {
-                    evaluatedExpressions.add(e);
-                }
-            }
-
-            String opType = getTypeOfExpression(ctx.getText());
-            System.out.println("type inside if or while is " + opType);
-            if (!opType.equals("boolean")) {
-                semanticErrorsList.add("Expression <strong>" + ctx.expression().getText() + "</strong> is not " +
-                        "of type boolean. Found type <i>" + opType + "</i>.");
-            }
-
-            assignTemporals();
-            writeAssignTAC();
 
             // TAC
             if (ctx.getText().contains("if(")) {
+                operateExpression(ctx.expression());
+                evaluatedExpressions.add(ctx.expression());
+
+                if (ctx.expression().expression() != null) {
+                    for (decafParser.ExpressionContext e : ctx.expression().expression()) {
+                        evaluatedExpressions.add(e);
+                    }
+                }
+
+                String opType = getTypeOfExpression(ctx.getText());
+                System.out.println("type inside if or while is " + opType);
+                if (!opType.equals("boolean")) {
+                    semanticErrorsList.add("Expression <strong>" + ctx.expression().getText() + "</strong> is not " +
+                            "of type boolean. Found type <i>" + opType + "</i>.");
+                }
+
+                assignTemporals();
+                writeAssignTAC();
+
                 List<decafParser.BlockContext> blocks = ctx.block();
                 boolean hasElse = false;
 
@@ -721,7 +723,6 @@ public class SemanticListener extends decafBaseListener {
                 }
                 writeToTACFile("\n" + tacIndent + branchVar2 + ":");
             } else if (ctx.getText().contains("while(")) {
-                /* Write to TAC file */
                 String branchVar1 = "_L"+String.valueOf(branchVariablesCount);
                 branchVariablesCount++;
                 branchVariables.add(branchVar1);
@@ -730,11 +731,45 @@ public class SemanticListener extends decafBaseListener {
                 branchVariablesCount++;
 
                 writeToTACFile("\n" + tacIndent + branchVar1 + ":");
+
+                operateExpression(ctx.expression());
+                evaluatedExpressions.add(ctx.expression());
+
+                if (ctx.expression().expression() != null) {
+                    for (decafParser.ExpressionContext e : ctx.expression().expression()) {
+                        evaluatedExpressions.add(e);
+                    }
+                }
+
+                String opType = getTypeOfExpression(ctx.getText());
+                System.out.println("type inside if or while is " + opType);
+                if (!opType.equals("boolean")) {
+                    semanticErrorsList.add("Expression <strong>" + ctx.expression().getText() + "</strong> is not " +
+                            "of type boolean. Found type <i>" + opType + "</i>.");
+                }
+
+                assignTemporals();
+                writeAssignTAC();
+
+                /* Write to TAC file */
                 // TODO place code for condition
-                writeToTACFile(tacIndent +"// condition code here");
-                writeToTACFile(tacIndent + "Ifz " + "var " + "Goto " + branchVar2 + ";");
+                //writeToTACFile(tacIndent +"// condition code here");
+                writeToTACFile(tacIndent + "Ifz " + getPreviousTemp() + " Goto " + branchVar2 + ";");
                 // TODO place code inside while here
-                writeToTACFile(tacIndent +"// while code here");
+                //writeToTACFile(tacIndent +"// while code here");
+                List<decafParser.BlockContext> blocks = ctx.block();
+                List<decafParser.StatementContext> successStatements = blocks.get(0).statement();
+                for (decafParser.StatementContext s : successStatements) {
+                    if (!s.start.getText().equals(";")) {
+                        currentLocation = s.start.getText();
+                        operateExpression(s.expression());
+                        assignTemporals();
+                        writeAssignTAC();
+                        evaluatedExpressions.add(s.expression());
+                        currentLocation = "_top_null";
+                    }
+                }
+
                 writeToTACFile(tacIndent + "Goto " + branchVar1 + ":");
                 writeToTACFile("\n" + tacIndent + branchVar2 + ":");
             }
