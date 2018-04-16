@@ -730,6 +730,12 @@ public class SemanticListener extends decafBaseListener {
                 branchVariables.add(branchVar2);
                 branchVariablesCount++;
 
+                if (!tmpOpList.isEmpty()) {
+                    assignTemporals();
+                    writeAssignTAC();
+                    currentLocation = getNextTemp();
+                }
+
                 writeToTACFile("\n" + tacIndent + branchVar1 + ":");
 
                 operateExpression(ctx.expression());
