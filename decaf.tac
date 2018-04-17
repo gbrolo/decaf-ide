@@ -1,15 +1,10 @@
 main:
 	BeginFunc N;
-	_t1 = y*y;
-	_t0 = x*x;
-	m2 = _t0+_t1;
-
-	_L0:
-	_t2 = m2>5;
-	Ifz _t2 Goto _L1;
-	m2 = m2-x;
-	Goto _L0:
-
-	_L1:
-	m2 = m2;
+	_t0 = 1;
+	_t1 = 4;
+	_t2 = _t0*_t1;
+	_t3 = arr+_t2;
+	_t4 = *(_t3);
+	_t5 = arr[0]*2;
+	_t4 = _t5;
 	EndFunc;

@@ -135,8 +135,20 @@ public class SemanticListener extends decafBaseListener {
                                     int parse = Integer.parseInt(str);
                                     splitsTypes[i] = "int";
                                 } catch (Exception e) {
-                                    // its a char_literal
-                                    splitsTypes[i] = "char";
+                                    // check if is array
+                                    if (str.matches("(.)*(\\[([0-9])\\])")) {
+                                        String[] internSplit = str.split("\\[");
+
+                                        for (VarElement ve : varList) {
+                                            if (ve.getID().equals(internSplit[0]) && ve.getContext().equals(currentMethodContext)) {
+                                                splitsTypes[i] = ve.getVarType();
+                                                break;
+                                            }
+                                        }
+                                    } else {
+                                        // its a char_literal
+                                        splitsTypes[i] = "char";
+                                    }
                                 }
                             }
                         }
@@ -826,6 +838,15 @@ public class SemanticListener extends decafBaseListener {
             ID = ctx.ID().getText();
         }
 
+        // we have an array
+        if (ctx.getText().matches("(.)*(\\[[0-9]\\])")) {
+            // lets add the expression inside the array to the evaluated list so algorithm does not confuse
+            if (ctx.expression() != null) {
+                decafParser.ExpressionContext ec = ctx.expression();
+                evaluatedExpressions.add(ec);
+            }
+        }
+
         // verify if ID exits. If not, the location is invalid, since the variable does not exist.
         boolean isLocationDefined = false;
         // location can be a variable
@@ -982,8 +1003,31 @@ public class SemanticListener extends decafBaseListener {
             }
         }
 
+        for (decafParser.ArgContext arg : argList) {
+            tmpOpList.add(new Operation(arg.getText()));
+            evaluatedExpressions.add(arg.expression());
+        }
+
         // TAC Generation
-        writeToTACFile(tacIndent + "PushParam " + "paramVar" + ";");
+        List<String> argTmps = new LinkedList<>();
+        if (!tmpOpList.isEmpty()) {
+            assignTemporals();
+            writeAssignTAC();
+            argTmps.add(getPreviousTemp()); // TODO check this
+            currentLocation = getNextTemp();
+        }
+
+        System.out.println("evaluatedExpressions has: " + evaluatedExpressions.toString());
+
+        String paramList = "";
+
+        for (String arg : argTmps) {
+            paramList = paramList + arg + ", ";
+        }
+
+        paramList = paramList.substring(0, paramList.length()-2);
+
+        writeToTACFile(tacIndent + "PushParam " + paramList + ";");
         writeToTACFile(tacIndent + "LCall _" + firm + ";");
         writeToTACFile(tacIndent + "PopParams N;");
 
@@ -1169,6 +1213,10 @@ public class SemanticListener extends decafBaseListener {
         return "_t" + String.valueOf(tempVarsCount-1);
     }
 
+    private String getCurrentTemp() {
+        return "_t" + String.valueOf(tempVarsCount);
+    }
+
     private void assignTemporals() {
         // Verify that tempVarsValues is empty
         if (tempVarsValues.size() == 0) {
@@ -1228,6 +1276,34 @@ public class SemanticListener extends decafBaseListener {
             List<String> out = new LinkedList<>();
             List<String> toWriteList = new LinkedList<>();
 
+            // Check if currentLocation is an array index, if so change it to TAC
+            boolean currLocIsArr = false;
+            String arrLoc = "";
+            if (currentLocation.matches("(.)*(\\[([0-9])\\])")) {
+                currLocIsArr = true;
+                String[] currLocSplit = currentLocation.split("\\[");
+
+                for (int i = 0; i < currentLocation.length(); i++) {
+                    String index = "";
+                    if (Character.toString(currentLocation.charAt(i)).equals("[")) {
+                        index = Character.toString(currentLocation.charAt(i+1));
+                        String tmp1 = getNextTemp();
+                        String tmp2 = getNextTemp();
+                        String tmp3 = getNextTemp();
+                        String tmp4 = getNextTemp();
+                        String tmp5 = getNextTemp();
+                        writeToTACFile(tacIndent + tmp1 + " = " + index + ";");
+                        writeToTACFile(tacIndent + tmp2 + " = 4;");
+                        writeToTACFile(tacIndent + tmp3 + " = " + tmp1 + "*" + tmp2 + ";");
+                        writeToTACFile(tacIndent + tmp4 + " = " + currLocSplit[0] + "+" + tmp3 + ";");
+                        writeToTACFile(tacIndent + tmp5 + " = " + "*(" + tmp4 + ");");
+                        arrLoc = tmp5;
+                        currentLocation = getNextTemp();
+                        break;
+                    }
+                }
+            }
+
             // write all lines
             for (int j = 0; j < t; j++) {
                 String e = expsInOrder.poll();
@@ -1247,11 +1323,45 @@ public class SemanticListener extends decafBaseListener {
             }
 
             for (int i = out.size()-1; i >= 0; i--) {
-                toWriteList.add(out.get(i));
+                // checking for boolean expressions
+                String wholeExpression = out.get(i);
+                wholeExpression = wholeExpression.replace(" ", "");
+                wholeExpression = wholeExpression.replace(";", "");
+                String[] expSplit = wholeExpression.split("=");
+
+                // expSplit[0] has tempVar and expSplit[1] has expression
+                // conditions to split expSplit[1]:
+                // 1. a > b
+                // 2. a <= b
+                // 3. a >= b (check)
+                if (expSplit[1].contains(">") || expSplit[1].contains("<=") || expSplit[1].contains(">=")) {
+                    //case 1
+                    if (expSplit[1].contains(">")) {
+                        String[] secondSplit = expSplit[1].split(">");
+                        String finalExpr = expSplit[0] + " = " + secondSplit[1] + "<" + secondSplit[0] + ";";
+                        toWriteList.add(finalExpr);
+                    } else if (expSplit[1].contains("<=")) {
+                        String[] secondSplit = expSplit[1].split("<=");
+                        String tmp1 = getNextTemp();
+                        String tmp2 = getNextTemp();
+                        String finalExp1 = tmp1 + " = " + secondSplit[0] + "<" + secondSplit[1] + ";";
+                        String finalExp2 = tmp2 + " = " + secondSplit[0] + "==" + secondSplit[1] + ";";
+                        String finalExp3 = expSplit[0] + " = " + tmp1 + "||" + tmp2 + ";";
+                        toWriteList.add(finalExp1);
+                        toWriteList.add(finalExp2);
+                        toWriteList.add(finalExp3);
+                    }
+                } else {
+                    toWriteList.add(out.get(i));
+                }
             }
 
             for (String o : toWriteList) {
                 writeToTACFile(o);
+            }
+
+            if (currLocIsArr) {
+                writeToTACFile(tacIndent + arrLoc + " = " + currentLocation + ";");
             }
 
             // reset temporaries
