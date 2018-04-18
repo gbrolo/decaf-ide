@@ -30,6 +30,8 @@ public class SemanticListener extends decafBaseListener {
     private List<decafParser.ExpressionContext> evaluatedExpressions;
 
     private int popParamsSize;
+    private boolean writeToTACSignal;
+    private List<String> outTAC;
 
     public SemanticListener(decafParser parser) {
         this.parser = parser;
@@ -63,6 +65,8 @@ public class SemanticListener extends decafBaseListener {
         branchVariables = new LinkedList<>();
         tempVarsCount = 0;
         currentLocation = "_top_null";
+        writeToTACSignal = false;
+        outTAC = new ArrayList<>();
     }
 
     public void operateExpression(decafParser.ExpressionContext ctx) {
@@ -1179,7 +1183,28 @@ public class SemanticListener extends decafBaseListener {
         if (!tempVarsValues.isEmpty()) {
             writeAssignTAC();
         }
+
+        // change write signal to true to write to file
+        writeToTACSignal = true;
+
+        int N = 0;
+        for (String str : outTAC) {
+            if (str.contains("_t")) {
+                N++;
+            }
+        }
+
+        for (String str : outTAC) {
+            if (str.contains("BeginFunc N;")) {
+                writeToTACFile(tacIndent + "BeginFunc " + String.valueOf(4*N) + ";");
+            } else {
+                writeToTACFile(str);
+            }
+        }
+
         writeToTACFile(tacIndent + "EndFunc;");
+        writeToTACSignal = false;
+        outTAC.clear();
         tacIndent = tacIndent.substring(0, tacIndent.length()-1);
         this.tempVarsCount = 0;                 // reset counter
         evaluatedExpressions.clear();
@@ -1193,13 +1218,17 @@ public class SemanticListener extends decafBaseListener {
     }
 
     private void writeToTACFile(String line) {
-        try(FileWriter fw = new FileWriter("decaf.tac", true);
-            BufferedWriter bw = new BufferedWriter(fw);
-            PrintWriter out = new PrintWriter(bw))
-        {
-            out.println(line);
-        } catch (IOException e) {
-            //exception handling left as an exercise for the reader
+        if (writeToTACSignal) {
+            try(FileWriter fw = new FileWriter("decaf.tac", true);
+                BufferedWriter bw = new BufferedWriter(fw);
+                PrintWriter out = new PrintWriter(bw))
+            {
+                out.println(line);
+            } catch (IOException e) {
+                //exception handling left as an exercise for the reader
+            }
+        } else {
+            outTAC.add(line);
         }
     }
 
