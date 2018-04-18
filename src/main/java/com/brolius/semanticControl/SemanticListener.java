@@ -29,6 +29,8 @@ public class SemanticListener extends decafBaseListener {
     private String currentLocation;
     private List<decafParser.ExpressionContext> evaluatedExpressions;
 
+    private int popParamsSize;
+
     public SemanticListener(decafParser parser) {
         this.parser = parser;
         this.foundMain = false;
@@ -1029,7 +1031,9 @@ public class SemanticListener extends decafBaseListener {
 
         writeToTACFile(tacIndent + "PushParam " + paramList + ";");
         writeToTACFile(tacIndent + "LCall _" + firm + ";");
-        writeToTACFile(tacIndent + "PopParams N;");
+        popParamsSize = argTmps.size() * 4;
+        writeToTACFile(tacIndent + "PopParams " + popParamsSize + ";");
+        popParamsSize = 0;
 
         if (!isMethodDeclared) { semanticErrorsList.add("Can't make call to undeclared method " + firm); }
     }
@@ -1316,7 +1320,61 @@ public class SemanticListener extends decafBaseListener {
                     if (exp.equals("_top_assign")) exp = getNextTemp();
                 }
 
-                String toWrite = tacIndent + exp + " = " + var + ";";
+                // check if expression has an array inside
+                String arrTmp = "";
+                if (var.matches("(.)*(\\[([0-9])\\])(.)*")) {
+                    // it does!
+                    // so split by possible operator
+                    String[] expSplit = var.split("\\+|-|\\*|/|%|&&|\\|\\||==|!=|<|<=|>|>=");
+
+                    String operator = "";
+
+                    if (var.contains("+")) { operator =  "+"; }
+                    if (var.contains("-")) { operator =  "-"; }
+                    if (var.contains("/")) { operator =  "/"; }
+                    if (var.contains("*")) { operator =  "*"; }
+                    if (var.contains("%")) { operator =  "%"; }
+                    if (var.contains("&&")) { operator =  "&&"; }
+                    if (var.contains("||")) { operator =  "||"; }
+                    if (var.contains("==")) { operator =  "=="; }
+                    if (var.contains("!=")) { operator =  "!="; }
+                    if (var.contains("<")) { operator =  "<"; }
+                    if (var.contains("<=")) { operator =  "<="; }
+                    if (var.contains(">")) { operator =  ">"; }
+                    if (var.contains(">=")) { operator =  ">="; }
+
+                    //  TODO expSplit[0] has the whole array call
+                    String[] currLocSplit = expSplit[0].split("\\[");
+
+                    for (int i = 0; i < expSplit[0].length(); i++) {
+                        String index = "";
+                        if (Character.toString(expSplit[0].charAt(i)).equals("[")) {
+                            index = Character.toString(expSplit[0].charAt(i+1));
+                            String tmp1 = getNextTemp();
+                            String tmp2 = getNextTemp();
+                            String tmp3 = getNextTemp();
+                            String tmp4 = getNextTemp();
+                            String tmp5 = getNextTemp();
+                            writeToTACFile(tacIndent + tmp1 + " = " + index + ";");
+                            writeToTACFile(tacIndent + tmp2 + " = 4;");
+                            writeToTACFile(tacIndent + tmp3 + " = " + tmp1 + "*" + tmp2 + ";");
+                            writeToTACFile(tacIndent + tmp4 + " = " + currLocSplit[0] + "+" + tmp3 + ";");
+                            writeToTACFile(tacIndent + tmp5 + " = " + "*(" + tmp4 + ");");
+                            arrTmp = tmp5 + operator + expSplit[1];
+                            break;
+                        }
+                    }
+
+                }
+
+                String toWrite = "";
+
+                if (!arrTmp.equals("")) {
+                    toWrite = tacIndent + exp + " = " + arrTmp + ";";
+                } else {
+                    toWrite = tacIndent + exp + " = " + var + ";";
+                }
+
                 out.add(toWrite);
 
                 //writeToTACFile(toWrite);

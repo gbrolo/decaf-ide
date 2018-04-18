@@ -1,10 +1,13 @@
+_SimpleFn:
+	BeginFunc N;
+	_t0 = x*y;
+	x = _t0*z;
+	EndFunc;
 main:
 	BeginFunc N;
-	_t0 = 1;
-	_t1 = 4;
-	_t2 = _t0*_t1;
-	_t3 = arr+_t2;
-	_t4 = *(_t3);
-	_t5 = arr[0]*2;
-	_t4 = _t5;
+	_t0 = 137;
+	x = 137;
+	PushParam _t0;
+	LCall _SimpleFn;
+	PopParams 4;
 	EndFunc;
