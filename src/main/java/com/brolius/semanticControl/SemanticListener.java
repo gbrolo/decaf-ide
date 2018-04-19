@@ -32,6 +32,7 @@ public class SemanticListener extends decafBaseListener {
     private int popParamsSize;
     private boolean writeToTACSignal;
     private List<String> outTAC;
+    private String returnTAC;
 
     public SemanticListener(decafParser parser) {
         this.parser = parser;
@@ -107,7 +108,8 @@ public class SemanticListener extends decafBaseListener {
                     if (operation.contains(">")) { operator =  ">"; }
                     if (operation.contains(">=")) { operator =  ">="; }
 
-                    String[] splits = operation.split("\\+|-|\\*|/|%|&&|\\|\\||==|!=|<|<=|>|>=");
+                    //String[] splits = operation.split("\\+|-|\\*|/|%|&&|\\|\\||==|!=|<|<=|>|>=");
+                    String[] splits = splitter(operation, operator);
                     String[] splitsTypes = new String[splits.length];
 
                     int i = 0;
@@ -595,6 +597,9 @@ public class SemanticListener extends decafBaseListener {
                 semanticErrorsList.add("Method <strong>" + currentMethodContext.getFirm() + "</strong> " +
                         "declared as void. Invalid return statement.");
             }
+
+            // TODO return TAC
+            returnTAC = tacIndent + "Return " + getCurrentTemp() + ";";
         }
 
         // location = expression type
@@ -1017,23 +1022,40 @@ public class SemanticListener extends decafBaseListener {
         // TAC Generation
         List<String> argTmps = new LinkedList<>();
         if (!tmpOpList.isEmpty()) {
+            // TODO remove duplicates from tmpOpList
+            removeTmpOpListDuplicates();
+
+            String currentTemp = getCurrentTemp();
+
+            for (Operation op : tmpOpList) {
+                argTmps.add(getCurrentTemp());
+                getNextTemp();
+            }
+
+            setCurrentTemp(currentTemp);
+
             assignTemporals();
             writeAssignTAC();
-            argTmps.add(getPreviousTemp()); // TODO check this
+            //argTmps.add(getPreviousTemp()); // TODO check this
             currentLocation = getNextTemp();
         }
 
         System.out.println("evaluatedExpressions has: " + evaluatedExpressions.toString());
 
-        String paramList = "";
+//        String paramList = "";
+//
+//        for (String arg : argTmps) {
+//            paramList = paramList + arg + ", ";
+//        }
+//
+//        paramList = paramList.substring(0, paramList.length()-2);
+//
+//        writeToTACFile(tacIndent + "PushParam " + paramList + ";");
 
         for (String arg : argTmps) {
-            paramList = paramList + arg + ", ";
+            writeToTACFile(tacIndent + "PushParam " + arg + ";");
         }
 
-        paramList = paramList.substring(0, paramList.length()-2);
-
-        writeToTACFile(tacIndent + "PushParam " + paramList + ";");
         writeToTACFile(tacIndent + "LCall _" + firm + ";");
         popParamsSize = argTmps.size() * 4;
         writeToTACFile(tacIndent + "PopParams " + popParamsSize + ";");
@@ -1202,12 +1224,18 @@ public class SemanticListener extends decafBaseListener {
             }
         }
 
+        if (returnTAC != null) {
+            writeToTACFile(returnTAC);
+            returnTAC = null;
+        }
+
         writeToTACFile(tacIndent + "EndFunc;");
         writeToTACSignal = false;
         outTAC.clear();
         tacIndent = tacIndent.substring(0, tacIndent.length()-1);
         this.tempVarsCount = 0;                 // reset counter
         evaluatedExpressions.clear();
+        currentLocation = "_top_null";
     }
 
     public List<String> getSemanticErrorsList() {
@@ -1248,6 +1276,11 @@ public class SemanticListener extends decafBaseListener {
 
     private String getCurrentTemp() {
         return "_t" + String.valueOf(tempVarsCount);
+    }
+
+    private void setCurrentTemp(String tmp) {
+        int tmpVal = Integer.parseInt(Character.toString(tmp.charAt(tmp.length()-1)));
+        tempVarsCount = tmpVal;
     }
 
     private void assignTemporals() {
@@ -1335,6 +1368,19 @@ public class SemanticListener extends decafBaseListener {
                         break;
                     }
                 }
+            } else if (currentLocation.matches("((.)*\\.(.)*)+")) {
+                // has struct structure
+                String[] structLocationSplit = currentLocation.split("\\.");
+                String[] orderedSplit = new String[structLocationSplit.length];
+
+                int q = 0;
+                for (int k = structLocationSplit.length-1; k>=0; k--) {
+                    orderedSplit[q] = structLocationSplit[k];
+                    q++;
+                }
+
+                // orderedSplit has vars in order
+                // TODO struct TAC
             }
 
             // write all lines
@@ -1372,7 +1418,7 @@ public class SemanticListener extends decafBaseListener {
                     if (var.contains(">")) { operator =  ">"; }
                     if (var.contains(">=")) { operator =  ">="; }
 
-                    //  TODO expSplit[0] has the whole array call
+                    //  expSplit[0] has the whole array call
                     String[] currLocSplit = expSplit[0].split("\\[");
 
                     for (int i = 0; i < expSplit[0].length(); i++) {
@@ -1414,7 +1460,21 @@ public class SemanticListener extends decafBaseListener {
                 String wholeExpression = out.get(i);
                 wholeExpression = wholeExpression.replace(" ", "");
                 wholeExpression = wholeExpression.replace(";", "");
+
+                // handle <=
+                wholeExpression = wholeExpression.replace("<=", "leq&;");
+
                 String[] expSplit = wholeExpression.split("=");
+                String[] tmpExpSplit = new String[expSplit.length];
+
+                // handle <=
+                int k = 0;
+                for (String str : expSplit) {
+                    tmpExpSplit[k] = str.replace("leq&;", "<=");
+                    k++;
+                }
+
+                expSplit = tmpExpSplit;
 
                 // expSplit[0] has tempVar and expSplit[1] has expression
                 // conditions to split expSplit[1]:
@@ -1431,8 +1491,8 @@ public class SemanticListener extends decafBaseListener {
                         String[] secondSplit = expSplit[1].split("<=");
                         String tmp1 = getNextTemp();
                         String tmp2 = getNextTemp();
-                        String finalExp1 = tmp1 + " = " + secondSplit[0] + "<" + secondSplit[1] + ";";
-                        String finalExp2 = tmp2 + " = " + secondSplit[0] + "==" + secondSplit[1] + ";";
+                        String finalExp1 = tacIndent + tmp1 + " = " + secondSplit[0] + "<" + secondSplit[1] + ";";
+                        String finalExp2 = tacIndent + tmp2 + " = " + secondSplit[0] + "==" + secondSplit[1] + ";";
                         String finalExp3 = expSplit[0] + " = " + tmp1 + "||" + tmp2 + ";";
                         toWriteList.add(finalExp1);
                         toWriteList.add(finalExp2);
@@ -1454,5 +1514,34 @@ public class SemanticListener extends decafBaseListener {
             // reset temporaries
             resetTemporalOperations();
         }
+    }
+
+    private String[] splitter(String operation, String operator) {
+        if (operator.equals("+") || operator.equals("*") || operator.equals("||")) {
+            return operation.split("\\+|\\*|\\|\\|");
+        } else {
+            return operation.split(operator);
+        }
+    }
+
+    private void removeTmpOpListDuplicates() {
+        List<String> tmp = new LinkedList<>();
+
+        for (Operation op : tmpOpList) {
+            String in = op.getOperation();
+
+            if (!tmp.contains(in)) {
+                tmp.add(in);
+            }
+        }
+
+        List<Operation> tmp2 = new LinkedList<>();
+
+        for (String str : tmp) {
+            tmp2.add(new Operation(str));
+        }
+
+        tmpOpList.clear();
+        tmpOpList.addAll(tmp2);
     }
 }

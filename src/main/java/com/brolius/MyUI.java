@@ -30,12 +30,12 @@ import org.antlr.v4.runtime.tree.Tree;
 import org.antlr.v4.runtime.tree.Trees;
 
 import java.awt.*;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Scanner;
 
 /**
  * IDE UI for the Decaf Compiler
@@ -84,12 +84,14 @@ public class MyUI extends UI {
 
         /* Buttons for compilation, tree and to clear the console */
         Button button = new Button("Compile code");
-        Button generateTreeBtn = new Button("Tree representation");
+        Button generateTreeBtn = new Button("Tree");
         Button clrConsoleBtn = new Button("Clear console");
+        Button showTAC = new Button("Show TAC");
 
         button.setSizeFull();
         generateTreeBtn.setSizeFull();
         clrConsoleBtn.setSizeFull();
+        showTAC.setSizeFull();
 
         generateTreeBtn.setEnabled(false);
 
@@ -226,6 +228,45 @@ public class MyUI extends UI {
             consolePanelLayout.removeAllComponents();
         });
 
+        showTAC.addClickListener(event -> {
+            final Window window = new Window("Generated TAC");
+            //window.setWidth(90.0f, Unit.PERCENTAGE);
+            window.setHeight(90.0f, Unit.PERCENTAGE);
+            window.setWidth(50.0f, Sizeable.Unit.PERCENTAGE);
+            window.center();
+            window.setResizable(false);
+
+            Scanner in = null;
+            String outString = "";
+            try {
+                in = new Scanner(new FileReader("decaf.tac"));
+                StringBuilder sb = new StringBuilder();
+                while(in.hasNext()) {
+                    sb.append(in.nextLine() + "\n");
+                }
+                in.close();
+                outString = sb.toString();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+
+            Panel tacPanel = new Panel();
+
+            Label tacLabel = new Label(outString.replace("<", " < ")
+                    .replace("\n", "<br>")
+                    .replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;"), ContentMode.HTML);
+
+            VerticalLayout tacLayout = new VerticalLayout();
+            tacLayout.setSpacing(true);
+            tacLayout.addComponent(tacLabel);
+
+            tacPanel.setContent(tacLayout);
+
+            window.setContent(tacPanel);
+
+            hLayout.getUI().getUI().addWindow(window);
+        });
+
         Label mainlbl = new Label("<div style=\"font-size: 1.8em;\"><center><strong>VaaDecaf</strong></center><div>", ContentMode.HTML);
         mainlbl.setWidth(100.0f, Sizeable.Unit.PERCENTAGE);
 
@@ -237,7 +278,7 @@ public class MyUI extends UI {
 
         HorizontalLayout editorButtonsLayout = new HorizontalLayout();
         editorButtonsLayout.setSizeFull();
-        editorButtonsLayout.addComponents(button, generateTreeBtn, clrConsoleBtn);
+        editorButtonsLayout.addComponents(button, generateTreeBtn, showTAC, clrConsoleBtn);
 
         consolePanel.setContent(consolePanelLayout);
         consoleLayout.addComponent(consolePanel);
