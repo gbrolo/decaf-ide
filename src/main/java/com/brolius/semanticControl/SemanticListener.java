@@ -33,6 +33,8 @@ public class SemanticListener extends decafBaseListener {
     private boolean writeToTACSignal;
     private List<String> outTAC;
     private String returnTAC;
+    private int positionInStructCount;
+    private String methodCallLocation;
 
     public SemanticListener(decafParser parser) {
         this.parser = parser;
@@ -545,6 +547,11 @@ public class SemanticListener extends decafBaseListener {
 //            }
 //        }
 
+        // TODO check var = LCall for TAC
+        if (ctx.location() != null && ctx.expression().methodCall() != null) {
+            methodCallLocation = ctx.location().getText();
+        }
+
         if (ctx.getText().contains("return")) {
             String[] lineSplit = ctx.getText().replace(";", "").split("return");
             String returnVal = lineSplit[lineSplit.length-1];
@@ -909,6 +916,11 @@ public class SemanticListener extends decafBaseListener {
         VarElement newVar = new VarElement(varType, ID, currentMethodContext);
         newVar.setStruct(isStruct);
 
+        if (newVar.getContext().getType().equals("struct")) {
+            newVar.setPositionInStruct(positionInStructCount);
+            positionInStructCount++;
+        }
+
         if (!num.equals("")) {
             try {
                 int numInt = Integer.parseInt(num);
@@ -1056,7 +1068,13 @@ public class SemanticListener extends decafBaseListener {
             writeToTACFile(tacIndent + "PushParam " + arg + ";");
         }
 
-        writeToTACFile(tacIndent + "LCall _" + firm + ";");
+        if (methodCallLocation != null) {
+            writeToTACFile(tacIndent + methodCallLocation + " = LCall _" + firm + ";");
+            methodCallLocation = null;
+        } else {
+            writeToTACFile(tacIndent + "LCall _" + firm + ";");
+        }
+
         popParamsSize = argTmps.size() * 4;
         writeToTACFile(tacIndent + "PopParams " + popParamsSize + ";");
         popParamsSize = 0;
@@ -1236,6 +1254,7 @@ public class SemanticListener extends decafBaseListener {
         this.tempVarsCount = 0;                 // reset counter
         evaluatedExpressions.clear();
         currentLocation = "_top_null";
+        positionInStructCount = 0;
     }
 
     public List<String> getSemanticErrorsList() {
@@ -1345,6 +1364,10 @@ public class SemanticListener extends decafBaseListener {
             // Check if currentLocation is an array index, if so change it to TAC
             boolean currLocIsArr = false;
             String arrLoc = "";
+
+            boolean currLocIsStruct = false;
+            String structLoc = "";
+
             if (currentLocation.matches("(.)*(\\[([0-9])\\])")) {
                 currLocIsArr = true;
                 String[] currLocSplit = currentLocation.split("\\[");
@@ -1369,7 +1392,11 @@ public class SemanticListener extends decafBaseListener {
                     }
                 }
             } else if (currentLocation.matches("((.)*\\.(.)*)+")) {
+                // SCall
+                writeToTACFile(tacIndent + "SCall " + currentLocation);
                 // has struct structure
+                currLocIsStruct = true;
+
                 String[] structLocationSplit = currentLocation.split("\\.");
                 String[] orderedSplit = new String[structLocationSplit.length];
 
@@ -1381,6 +1408,46 @@ public class SemanticListener extends decafBaseListener {
 
                 // orderedSplit has vars in order
                 // TODO struct TAC
+                for (int g = 0; g < orderedSplit.length; g++) {
+                    String var = orderedSplit[g];
+
+                    if (g < orderedSplit.length-1) {
+                        String prevVar = orderedSplit[g+1];
+
+                        // search varList for prevVar to see the struct
+                        // TODO check
+                        boolean keepSearching = true;
+                        int vePos = 0;
+                        for (VarElement ve : varList) {
+                            if (keepSearching) {
+                                if (ve.getID().equals(var) && ve.getContext().getType().equals("struct")) {
+                                    for (VarElement ve2 : varList) {
+                                        if (ve2.getID().equals(prevVar) && ve.getContext().getFirm().equals(ve2.getVarType())) {
+                                            // ve is the desired var
+                                            // TODO check here
+                                            vePos = ve2.getPositionInStruct();
+                                            keepSearching = false;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        String tmp1 = getNextTemp();
+                        String tmp2 = getNextTemp();
+                        String tmp3 = getNextTemp();
+                        String tmp4 = getNextTemp();
+                        String tmp5 = getNextTemp();
+                        writeToTACFile(tacIndent + tmp1 + " = " + vePos + ";");
+                        writeToTACFile(tacIndent + tmp2 + " = 4;");
+                        writeToTACFile(tacIndent + tmp3 + " = " + tmp1 + "*" + tmp2 + ";");
+                        writeToTACFile(tacIndent + tmp4 + " = " + prevVar + "+" + tmp3 + ";");
+                        writeToTACFile(tacIndent + tmp5 + " = " + "*(" + tmp4 + ");");
+                        arrLoc = tmp5;
+                        currentLocation = getNextTemp();
+                    }
+                }
             }
 
             // write all lines
@@ -1450,7 +1517,15 @@ public class SemanticListener extends decafBaseListener {
                     toWrite = tacIndent + exp + " = " + var + ";";
                 }
 
-                out.add(toWrite);
+                // Check for equal expressions in both sides x = x
+                String toVerify = toWrite.replace("\t", "").replace(" ", "")
+                        .replace(";", "");
+                String[] verSplits = toVerify.split("=");
+
+                if (!verSplits[0].equals(verSplits[1])) {
+                    out.add(toWrite);
+                }
+
 
                 //writeToTACFile(toWrite);
             }
@@ -1509,6 +1584,11 @@ public class SemanticListener extends decafBaseListener {
 
             if (currLocIsArr) {
                 writeToTACFile(tacIndent + arrLoc + " = " + currentLocation + ";");
+            }
+
+            if (currLocIsStruct) {
+                writeToTACFile(tacIndent + arrLoc + " = " + currentLocation + ";");
+                writeToTACFile(tacIndent + "End SCall;");
             }
 
             // reset temporaries

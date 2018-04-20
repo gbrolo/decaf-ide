@@ -7,6 +7,7 @@ public class VarElement {
     private boolean isArray;
     private boolean isStruct;
     private String value;
+    private int positionInStruct;
 
     private MethodElement context;
 
@@ -36,6 +37,11 @@ public class VarElement {
         isArray = true;
     }
 
+    public void setPositionInStruct(int positionInStruct) {
+        this.positionInStruct = positionInStruct;
+    }
+
+    public int getPositionInStruct() { return this.positionInStruct; }
     public String getID() { return ID; }
     public String getVarType() { return varType; }
     public int getNUM() { return NUM; }
