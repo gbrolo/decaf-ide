@@ -461,8 +461,8 @@ public class SemanticListener extends decafBaseListener {
                             if (typeOf != null) {
                                 if (!typeOf.equals("")) {
                                     System.out.println("types didnt match");
-                                    semanticErrorsList.add("Types don't match at <strong>" + ctx.getText() + "</strong> <i>" +
-                                            ve.getVarType() + "</i> is not equal to </i><i>" + typeOf + "</i>");
+//                                    semanticErrorsList.add("Types don't match at <strong>" + ctx.getText() + "</strong> <i>" +
+//                                            ve.getVarType() + "</i> is not equal to </i><i>" + typeOf + "</i>");
                                 }
                             }
                         }
@@ -477,8 +477,8 @@ public class SemanticListener extends decafBaseListener {
                             if (typeOf != null) {
                                 if (!typeOf.equals("")) {
                                     System.out.println("types didnt match");
-                                    semanticErrorsList.add("Types don't match at <strong>" + ctx.getText() + "</strong> <i>" +
-                                            ve.getVarType() + "</i> is not equal to </i><i>" + typeOf + "</i>");
+//                                    semanticErrorsList.add("Types don't match at <strong>" + ctx.getText() + "</strong> <i>" +
+//                                            ve.getVarType() + "</i> is not equal to </i><i>" + typeOf + "</i>");
                                 }
                             }
                         }
