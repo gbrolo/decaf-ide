@@ -14,16 +14,19 @@ mainDeclaration:    'main' ':' funcBlock ;
 methodDeclaration:  location ':' funcBlock ;
 funcBlock:          'BeginFunc' NUM ';' block 'EndFunc' ';' ;
 block:              (statement)* ;
-statement:          'Ifz' location 'Goto' location ';' block 'Goto' location ';' label block label
-                    | label (location '=' expression) ';' 'Ifz' location 'Goto' location ';' block 'Goto' location (':')* label
-                    | return
+statement:          ifStatement
+                    | whileStatement
+                    | returnExp
                     | methodCall
                     | structCall
-                    | location '=' expression ';'
+                    | assignStatement
                     | (expression)? ';';
+ifStatement:        'Ifz' location 'Goto' location ';' block 'Goto' location ';' label block label ;
+whileStatement:     label (location '=' expression) ';' 'Ifz' location 'Goto' location ';' block 'Goto' location (':')* label ;
+assignStatement:    location '=' expression ';' ;
 methodCall:         (pushParam)* 'LCall' location ';' 'PopParams' NUM ';' ;
 structCall:         'SCall' structLocation block 'End Scall;' ;
-return:             'Return' location ;
+returnExp:             'Return' location ;
 structLocation:     ID ('.' structLocation)? ;
 pushParam:          'PushParam' location ';' ;
 location:           ID | '_' ID | memoryLocation ;

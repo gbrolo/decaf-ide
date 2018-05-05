@@ -1624,4 +1624,8 @@ public class SemanticListener extends decafBaseListener {
         tmpOpList.clear();
         tmpOpList.addAll(tmp2);
     }
+
+    public List<VarElement> getVarList() {
+        return this.varList;
+    }
 }

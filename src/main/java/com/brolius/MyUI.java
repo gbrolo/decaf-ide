@@ -4,9 +4,12 @@ import javax.print.PrintException;
 import javax.servlet.annotation.WebServlet;
 
 import com.brolius.antlr.CustomErrorListener;
+import com.brolius.antlrtac.tacLexer;
+import com.brolius.antlrtac.tacParser;
 import com.brolius.semanticControl.SemanticListener;
 import com.brolius.antlr.decafLexer;
 import com.brolius.antlr.decafParser;
+import com.brolius.semanticControl.TacSemanticListener;
 import com.vaadin.annotations.Theme;
 import com.vaadin.annotations.VaadinServletConfiguration;
 import com.vaadin.server.*;
@@ -145,6 +148,34 @@ public class MyUI extends UI {
                 notification.show(Page.getCurrent());
 
                 generateTreeBtn.setEnabled(true);
+
+                /* Tac Parser generation and walkthrough */
+                Scanner in = null;
+                String tac = "";
+                try {
+                    in = new Scanner(new FileReader("decaf.tac"));
+                    StringBuilder sb = new StringBuilder();
+                    while(in.hasNext()) {
+                        sb.append(in.nextLine() + "\n");
+                    }
+                    in.close();
+                    tac = sb.toString();
+                } catch (FileNotFoundException er) {
+                    er.printStackTrace();
+                }
+
+                CharStream cs = CharStreams.fromString(tac);
+                tacLexer tl = new tacLexer(cs);
+                CommonTokenStream cts = new CommonTokenStream(tl);
+                tacParser tp = new tacParser(cts);
+
+                ParseTree pt = tp.program();
+
+                ParseTreeWalker tacTreeWalker = new ParseTreeWalker();
+                TacSemanticListener tacSL = new TacSemanticListener(tp, semanticListener.getVarList());
+                walker.walk(tacSL, pt);
+
+
             } else {
                 Notification notification = new Notification("Empty code", "The editor is empty",
                         Notification.Type.WARNING_MESSAGE, true);
@@ -347,6 +378,16 @@ public class MyUI extends UI {
     private void generateTACFile() {
         try {
             File file = new File("decaf.tac");
+            if (file.exists()) {
+                file.delete();
+            }
+            file.createNewFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            File file = new File("generated_mips.asm");
             if (file.exists()) {
                 file.delete();
             }
