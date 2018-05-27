@@ -7,6 +7,7 @@ import java.io.BufferedWriter;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Stack;
 
@@ -22,6 +23,8 @@ public class TacSemanticListener extends tacBaseListener {
 
     private String[] registersInUse;
 
+    private List<tacParser.AssignStatementContext> assignments;
+
     public TacSemanticListener(tacParser parser, List<VarElement> varListFromSource) {
         this.parser = parser;
         this.varListFromSource = varListFromSource;
@@ -33,6 +36,8 @@ public class TacSemanticListener extends tacBaseListener {
         fillRegistersStack();
 
         registersInUse = new String[3];
+
+        assignments = new LinkedList<>();
     }
 
     @Override
@@ -80,91 +85,219 @@ public class TacSemanticListener extends tacBaseListener {
     }
 
     @Override
-    public void enterAssignStatement(tacParser.AssignStatementContext ctx) {
-        // separate location and expression
-        tacParser.LocationContext location = ctx.location();
-        tacParser.ExpressionContext expression = ctx.expression();
+    public void enterIfStatement(tacParser.IfStatementContext ctx) {
+        // get involved variables and labels
+        List<tacParser.LocationContext> locations = ctx.location();
+        String temp = locations.get(0).getText();
+        String lbl1 = locations.get(1).getText();
+        String lbl2 = locations.get(2).getText();
 
-        String locRegister = "";
-        String locRegisterData = "";
-        // check if location has a termprary register in it
-        if (location.getText().contains("_t")) {
-            locRegister = location.getText().replace("_t", "$t");
-            temporariesStack.remove(locRegister);                       // remove register from available registers
-        } else {
-            locRegister = getNextAvailableSVR();
-            locRegisterData = location.getText() + "_" + currentContext;
+        temp = temp.replace("_", "$");
+
+        // write MIPS branch
+        writeToMIPSFile(currentIndent + "bgtz " + temp + ", " + lbl1);
+
+        // get blocks
+        List<tacParser.BlockContext> blocks = ctx.block();
+        tacParser.BlockContext falseBlock = blocks.get(0);
+        tacParser.BlockContext trueBlock = blocks.get(1);
+
+        // TODO handle false block
+        List<tacParser.StatementContext> fbStatements = falseBlock.statement();
+        for (tacParser.StatementContext stmt : fbStatements) {
+            if (stmt.assignStatement() != null) {
+                enterAssignStatement(stmt.assignStatement());
+                assignments.add(stmt.assignStatement());
+            } else if (stmt.ifStatement() != null) {
+                enterIfStatement(stmt.ifStatement());
+            }
         }
 
-        // set assign register
-        registersInUse[0] = locRegister;
+        // make jump to label 2
+        writeToMIPSFile(currentIndent + "b " + lbl2);
 
-        // get the operator for expression
-        String operator = getOperatorFromExpression(expression);
-        if (!operator.equals("$err_no_op")) {
-            // expression has two operands
-            // separate the operands
-            String[] operands = splitTac(expression.getText());
+        // label 1
+        writeToMIPSFile(currentIndent + lbl1 + ":");
 
-            int i = 1;
-            for (String operand : operands) {
-                if (operand.contains("_t")) {
-                    registersInUse[i] = operand.replace("_t", "$t");
-                } else {
-                    // operand is data in memory, so we should load it MIPS style
+        // TODO handle true block
+        List<tacParser.StatementContext> tbStatements = trueBlock.statement();
+        for (tacParser.StatementContext stmt : tbStatements) {
+            if (stmt.assignStatement() != null) {
+                enterAssignStatement(stmt.assignStatement());
+                assignments.add(stmt.assignStatement());
+            } else if (stmt.ifStatement() != null) {
+                enterIfStatement(stmt.ifStatement());
+            }
+        }
 
-                    // first change the name of the variable so it matchs context
-                    String varName = operand + "_" + currentContext;
+        // label 2
+        writeToMIPSFile(currentIndent + lbl2 + ":");
 
-                    // get a register where to load the data
-                    String register = getNextAvailableTR();
-                    registersInUse[i] = register;
+    }
 
-                    // load it in MIPS
-                    writeToMIPSFile(currentIndent + "lw " + register + ", " + varName + dataIndent + "# ld " +
-                            "data " + varName);
-                }
-                i = i + 1;
+    @Override
+    public void enterAssignStatement(tacParser.AssignStatementContext ctx) {
+        if (!assignments.contains(ctx)) {
+            // separate location and expression
+            tacParser.LocationContext location = ctx.location();
+            tacParser.ExpressionContext expression = ctx.expression();
+
+            String locRegister = "";
+            String locRegisterData = "";
+            // check if location has a termprary register in it
+            if (location.getText().contains("_t")) {
+                locRegister = location.getText().replace("_t", "$t");
+                temporariesStack.remove(locRegister);                       // remove register from available registers
+            } else {
+                locRegister = getNextAvailableSVR();
+                locRegisterData = location.getText() + "_" + currentContext;
             }
 
-            // registersInUse now stores three registers: [0] contains register to store operation, [1] and [2] the values
-            // find out what is the operation
+            // set assign register
+            registersInUse[0] = locRegister;
 
-            String operationIs = getMIPSOperation(operator);
-            if (!operationIs.equals("$err_invalid_op")) {
-                if (!operationIs.equals("mult") && !operationIs.equals("div")) {
-                    // write operation in MIPS
-                    writeToMIPSFile(currentIndent + operationIs + " " + registersInUse[0] + ", " + registersInUse[1] + ", "
-                            + registersInUse[2]);
+            // get the operator for expression
+            String operator = getOperatorFromExpression(expression);
+            if (!operator.equals("$err_no_op")) {
+                // expression has two operands
+                // separate the operands
+                String[] operands = splitTac(expression.getText());
 
-                    // free registers except [0]
-                    this.temporariesStack.push(registersInUse[1]);
-                    this.temporariesStack.push(registersInUse[2]);
+                int i = 1;
+                for (String operand : operands) {
+                    if (operand.contains("_t")) {
+                        registersInUse[i] = operand.replace("_t", "$t");
+                    } else {
+                        // operand is data in memory, so we should load it MIPS style
+
+                        // first change the name of the variable so it matchs context
+                        String varName = operand + "_" + currentContext;
+
+                        // get a register where to load the data
+                        String register = getNextAvailableTR();
+                        registersInUse[i] = register;
+
+                        // load it in MIPS
+                        writeToMIPSFile(currentIndent + "lw " + register + ", " + varName + dataIndent + "# ld " +
+                                "data " + varName);
+                    }
+                    i = i + 1;
+                }
+
+                // registersInUse now stores three registers: [0] contains register to store operation, [1] and [2] the values
+                // find out what is the operation
+
+                String operationIs = getMIPSOperation(operator);
+                if (!operationIs.equals("$err_invalid_op")) {
+                    if (!operationIs.equals("mult") && !operationIs.equals("div")) {
+                        // write operation in MIPS
+                        if (operationIs.equals("slt")) {
+                            // write less than in MIPS and assign to register
+                            writeToMIPSFile(currentIndent + operationIs + " " + registersInUse[0] + ", " + registersInUse[1] + ", "
+                                    + registersInUse[2]);
+
+                            this.temporariesStack.push(registersInUse[1]);
+                            this.temporariesStack.push(registersInUse[2]);
+
+                            // now check if is greater than zero. 1 is true, 0 is false or less than
+                            // TODO
+
+                        } else {
+                            writeToMIPSFile(currentIndent + operationIs + " " + registersInUse[0] + ", " + registersInUse[1] + ", "
+                                    + registersInUse[2]);
+
+                            // free registers except [0]
+                            this.temporariesStack.push(registersInUse[1]);
+                            this.temporariesStack.push(registersInUse[2]);
+
+                            // check if there's need to store
+                            if (!locRegisterData.equals("")) {
+                                // we need to store
+                                writeToMIPSFile(currentIndent + "sw " + registersInUse[0] + ", " + locRegisterData + dataIndent +
+                                        "# str data");
+                                writeToMIPSFile("\n");
+
+                                // since we did a store we can free the registers
+                                this.savedValuesStack.push(registersInUse[0]);
+                                this.temporariesStack.push(registersInUse[1]);
+                                this.temporariesStack.push(registersInUse[2]);
+                            }
+                        }
+                    } else {
+                        writeToMIPSFile(currentIndent + operationIs + " " + registersInUse[1] + ", " + registersInUse[2]);
+                        writeToMIPSFile(currentIndent + "mflo " + registersInUse[0]);
+
+                        // check if there's need to store
+                        if (!locRegisterData.equals("")) {
+                            // we need to store
+                            writeToMIPSFile(currentIndent + "sw " + registersInUse[0] + ", " + locRegisterData + dataIndent +
+                                    "# str data");
+                            writeToMIPSFile("\n");
+
+                            // since we did a store we can free the registers
+                            this.savedValuesStack.push(registersInUse[0]);
+                        }
+
+                        // free registers except [0]
+                        this.temporariesStack.push(registersInUse[1]);
+                        this.temporariesStack.push(registersInUse[2]);
+                    }
+                }
+
+            } else {
+                // TODO handle here possible immediate values and other stuff
+                String exp = expression.getText();
+
+                // check for inmmediate value
+                try {
+                    int immediate = Integer.parseInt(exp);
 
                     // check if there's need to store
                     if (!locRegisterData.equals("")) {
+                        writeToMIPSFile(currentIndent + "li " + registersInUse[0] + ", " + String.valueOf(immediate));
                         // we need to store
                         writeToMIPSFile(currentIndent + "sw " + registersInUse[0] + ", " + locRegisterData + dataIndent +
                                 "# str data");
-                        writeToMIPSFile("\n");
+
+                        // since we did a store we can free the registers
+                        this.savedValuesStack.push(registersInUse[0]);
+                    } else {
+                        writeToMIPSFile(currentIndent + "li " + registersInUse[0] + ", " + String.valueOf(immediate));
+                    }
+                } catch (Exception e) {
+                    // not an immediate value
+                    if (exp.contains("_t")) {
+                        registersInUse[1] = exp.replace("_t", "$t");
+                    } else {
+                        // operand is data in memory, so we should load it MIPS style
+
+                        // first change the name of the variable so it matchs context
+                        String varName = exp + "_" + currentContext;
+
+                        // get a register where to load the data
+                        String register = getNextAvailableTR();
+                        registersInUse[1] = register;
+
+                        // load it in MIPS
+                        writeToMIPSFile(currentIndent + "lw " + register + ", " + varName + dataIndent + "# ld " +
+                                "data " + varName);
+                    }
+
+                    // make assignment
+                    if (!locRegisterData.equals("")) {
+                        writeToMIPSFile(currentIndent + "move " + registersInUse[0] + ", " + registersInUse[1]);
+                        // we need to store
+                        writeToMIPSFile(currentIndent + "sw " + registersInUse[0] + ", " + locRegisterData + dataIndent +
+                                "# str data");
 
                         // since we did a store we can free the registers
                         this.savedValuesStack.push(registersInUse[0]);
                         this.temporariesStack.push(registersInUse[1]);
-                        this.temporariesStack.push(registersInUse[2]);
+                    } else {
+                        writeToMIPSFile(currentIndent + "move " + registersInUse[0] + ", " + registersInUse[1]);
                     }
-                } else {
-                    writeToMIPSFile(currentIndent + operationIs + " " + registersInUse[1] + ", " + registersInUse[2]);
-                    writeToMIPSFile(currentIndent + "mflo " + registersInUse[0]);
-
-                    // free registers except [0]
-                    this.temporariesStack.push(registersInUse[1]);
-                    this.temporariesStack.push(registersInUse[2]);
                 }
             }
-
-        } else {
-            // TODO handle here possible immediate values and other stuff
         }
     }
 
@@ -181,6 +314,8 @@ public class TacSemanticListener extends tacBaseListener {
             return "or";
         } else if (operator.equals("-")) {
             return "sub";
+        } else if (operator.equals("<")) {
+            return "slt";
         } else return "$err_invalid_op";
     }
 
