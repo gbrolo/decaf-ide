@@ -1,8 +1,12 @@
 main:
-	BeginFunc 20;
-	_t0 = b+c;
-	a = _t0+d;
-	_t1 = a*a;
-	_t2 = b*b;
-	b = _t1+_t2;
+	BeginFunc 8;
+
+	_L0:
+	_t0 = x<y;
+	Ifz _t0 Goto _L1;
+	x = x*2;
+	Goto _L0:
+
+	_L1:
+	y = x;
 	EndFunc;

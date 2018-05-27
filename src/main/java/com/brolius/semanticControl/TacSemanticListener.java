@@ -24,6 +24,8 @@ public class TacSemanticListener extends tacBaseListener {
     private String[] registersInUse;
 
     private List<tacParser.AssignStatementContext> assignments;
+    private List<tacParser.IfStatementContext> ifs;
+    private List<tacParser.WhileStatementContext> whiles;
 
     public TacSemanticListener(tacParser parser, List<VarElement> varListFromSource) {
         this.parser = parser;
@@ -38,6 +40,7 @@ public class TacSemanticListener extends tacBaseListener {
         registersInUse = new String[3];
 
         assignments = new LinkedList<>();
+        ifs = new LinkedList<>();
     }
 
     @Override
@@ -85,59 +88,121 @@ public class TacSemanticListener extends tacBaseListener {
     }
 
     @Override
+    public void enterWhileStatement(tacParser.WhileStatementContext ctx) {
+        System.out.println("Entering while stmt");
+        if (!whiles.contains(ctx)) {
+            // get objects
+            List<tacParser.LabelContext> lbls = ctx.label();
+            String lbl1 = lbls.get(0).getText();
+            String lbl2 = lbls.get(1).getText();
+            tacParser.AssignStatementContext assignStmt = ctx.assignStatement();
+            List<tacParser.LocationContext> locations = ctx.location();
+            String temp = locations.get(0).getText();
+            tacParser.BlockContext falseBlock = ctx.block();
+            temp = temp.replace("_", "$");
+
+            // handle assignment before if
+            writeToMIPSFile(currentIndent + lbl1 + ":");
+            enterAssignStatement(assignStmt);
+            assignments.add(assignStmt);
+
+            // write MIPS branch
+            writeToMIPSFile(currentIndent + "bgtz " + temp + ", " + lbl2);
+
+            // TODO handle false block
+            List<tacParser.StatementContext> fbStatements = falseBlock.statement();
+            for (tacParser.StatementContext stmt : fbStatements) {
+                if (stmt.assignStatement() != null) {
+                    enterAssignStatement(stmt.assignStatement());
+                    assignments.add(stmt.assignStatement());
+                } else if (stmt.ifStatement() != null) {
+                    enterIfStatement(stmt.ifStatement());
+                    ifs.add(stmt.ifStatement());
+                } else if (stmt.whileStatement() != null) {
+                    enterWhileStatement(stmt.whileStatement());
+                    whiles.add(stmt.whileStatement());
+                }
+            }
+
+            // branch to label 1
+            writeToMIPSFile(currentIndent + "b " + lbl1);
+
+            // write label 2
+            writeToMIPSFile(currentIndent + lbl2 + ":");
+
+        }
+    }
+
+    @Override
     public void enterIfStatement(tacParser.IfStatementContext ctx) {
-        // get involved variables and labels
-        List<tacParser.LocationContext> locations = ctx.location();
-        String temp = locations.get(0).getText();
-        String lbl1 = locations.get(1).getText();
-        String lbl2 = locations.get(2).getText();
+        if (!ifs.contains(ctx)) {
+            // get involved variables and labels
+            List<tacParser.LocationContext> locations = ctx.location();
+            String temp = locations.get(0).getText();
+            String lbl1 = locations.get(1).getText();
+            String lbl2 = locations.get(2).getText();
 
-        temp = temp.replace("_", "$");
+            temp = temp.replace("_", "$");
 
-        // write MIPS branch
-        writeToMIPSFile(currentIndent + "bgtz " + temp + ", " + lbl1);
+            // write MIPS branch
+            writeToMIPSFile(currentIndent + "bgtz " + temp + ", " + lbl1);
 
-        // get blocks
-        List<tacParser.BlockContext> blocks = ctx.block();
-        tacParser.BlockContext falseBlock = blocks.get(0);
-        tacParser.BlockContext trueBlock = blocks.get(1);
+            // get blocks
+            List<tacParser.BlockContext> blocks = ctx.block();
+            tacParser.BlockContext falseBlock = blocks.get(0);
+            tacParser.BlockContext trueBlock = blocks.get(1);
 
-        // TODO handle false block
-        List<tacParser.StatementContext> fbStatements = falseBlock.statement();
-        for (tacParser.StatementContext stmt : fbStatements) {
-            if (stmt.assignStatement() != null) {
-                enterAssignStatement(stmt.assignStatement());
-                assignments.add(stmt.assignStatement());
-            } else if (stmt.ifStatement() != null) {
-                enterIfStatement(stmt.ifStatement());
+            // TODO handle false block
+            List<tacParser.StatementContext> fbStatements = falseBlock.statement();
+            for (tacParser.StatementContext stmt : fbStatements) {
+                if (stmt.assignStatement() != null) {
+                    enterAssignStatement(stmt.assignStatement());
+                    assignments.add(stmt.assignStatement());
+                } else if (stmt.ifStatement() != null) {
+                    enterIfStatement(stmt.ifStatement());
+                    ifs.add(stmt.ifStatement());
+                } else if (stmt.whileStatement() != null) {
+                    enterWhileStatement(stmt.whileStatement());
+                    whiles.add(stmt.whileStatement());
+                }
             }
-        }
 
-        // make jump to label 2
-        writeToMIPSFile(currentIndent + "b " + lbl2);
+            // make jump to label 2
+            writeToMIPSFile(currentIndent + "b " + lbl2);
 
-        // label 1
-        writeToMIPSFile(currentIndent + lbl1 + ":");
+            // label 1
+            writeToMIPSFile(currentIndent + lbl1 + ":");
 
-        // TODO handle true block
-        List<tacParser.StatementContext> tbStatements = trueBlock.statement();
-        for (tacParser.StatementContext stmt : tbStatements) {
-            if (stmt.assignStatement() != null) {
-                enterAssignStatement(stmt.assignStatement());
-                assignments.add(stmt.assignStatement());
-            } else if (stmt.ifStatement() != null) {
-                enterIfStatement(stmt.ifStatement());
+            // TODO handle true block
+            List<tacParser.StatementContext> tbStatements = trueBlock.statement();
+            for (tacParser.StatementContext stmt : tbStatements) {
+                if (stmt.assignStatement() != null) {
+                    enterAssignStatement(stmt.assignStatement());
+                    assignments.add(stmt.assignStatement());
+                } else if (stmt.ifStatement() != null) {
+                    enterIfStatement(stmt.ifStatement());
+                    ifs.add(stmt.ifStatement());
+                } else if (stmt.whileStatement() != null) {
+                    enterWhileStatement(stmt.whileStatement());
+                    whiles.add(stmt.whileStatement());
+                }
             }
+
+            // label 2
+            writeToMIPSFile(currentIndent + lbl2 + ":");
+
+            // add if context to list
+            ifs.add(ctx);
         }
-
-        // label 2
-        writeToMIPSFile(currentIndent + lbl2 + ":");
-
     }
 
     @Override
     public void enterAssignStatement(tacParser.AssignStatementContext ctx) {
-        if (!assignments.contains(ctx)) {
+        boolean isEqExpr = false;
+        if (ctx.location().getText().equals(ctx.expression().getText()))
+            isEqExpr = true;
+
+        if (!assignments.contains(ctx) && !isEqExpr) {
             // separate location and expression
             tacParser.LocationContext location = ctx.location();
             tacParser.ExpressionContext expression = ctx.expression();
