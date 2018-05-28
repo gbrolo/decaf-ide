@@ -41,6 +41,7 @@ public class TacSemanticListener extends tacBaseListener {
 
         assignments = new LinkedList<>();
         ifs = new LinkedList<>();
+        whiles = new LinkedList<>();
     }
 
     @Override
@@ -79,6 +80,7 @@ public class TacSemanticListener extends tacBaseListener {
 
     @Override
     public void exitMainDeclaration(tacParser.MainDeclarationContext ctx) {
+        writeToMIPSFile("\n");
         // write exit call
         writeToMIPSFile(currentIndent + "# ---------- Exit ----------\n" +
                 currentIndent + "li $v0, 10\n" +
@@ -93,8 +95,8 @@ public class TacSemanticListener extends tacBaseListener {
         if (!whiles.contains(ctx)) {
             // get objects
             List<tacParser.LabelContext> lbls = ctx.label();
-            String lbl1 = lbls.get(0).getText();
-            String lbl2 = lbls.get(1).getText();
+            String lbl1 = lbls.get(0).getText().replace(":", "");
+            String lbl2 = lbls.get(1).getText().replace(":", "");
             tacParser.AssignStatementContext assignStmt = ctx.assignStatement();
             List<tacParser.LocationContext> locations = ctx.location();
             String temp = locations.get(0).getText();
@@ -233,18 +235,25 @@ public class TacSemanticListener extends tacBaseListener {
                     if (operand.contains("_t")) {
                         registersInUse[i] = operand.replace("_t", "$t");
                     } else {
-                        // operand is data in memory, so we should load it MIPS style
+                        try{
+                            // check if its not an immediate number
+                            int immediate = Integer.parseInt(operand);
+                            registersInUse[i] = getNextAvailableTR();
+                            writeToMIPSFile(currentIndent + "li " + registersInUse[i] + ", " + String.valueOf(immediate));
+                        } catch (Exception e) {
+                            // operand is data in memory, so we should load it MIPS style
 
-                        // first change the name of the variable so it matchs context
-                        String varName = operand + "_" + currentContext;
+                            // first change the name of the variable so it matchs context
+                            String varName = operand + "_" + currentContext;
 
-                        // get a register where to load the data
-                        String register = getNextAvailableTR();
-                        registersInUse[i] = register;
+                            // get a register where to load the data
+                            String register = getNextAvailableTR();
+                            registersInUse[i] = register;
 
-                        // load it in MIPS
-                        writeToMIPSFile(currentIndent + "lw " + register + ", " + varName + dataIndent + "# ld " +
-                                "data " + varName);
+                            // load it in MIPS
+                            writeToMIPSFile(currentIndent + "lw " + register + ", " + varName + dataIndent + "# ld " +
+                                    "data " + varName);
+                        }
                     }
                     i = i + 1;
                 }
@@ -280,7 +289,6 @@ public class TacSemanticListener extends tacBaseListener {
                                 // we need to store
                                 writeToMIPSFile(currentIndent + "sw " + registersInUse[0] + ", " + locRegisterData + dataIndent +
                                         "# str data");
-                                writeToMIPSFile("\n");
 
                                 // since we did a store we can free the registers
                                 this.savedValuesStack.push(registersInUse[0]);

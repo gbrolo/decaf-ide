@@ -753,6 +753,7 @@ public class SemanticListener extends decafBaseListener {
                 }
                 writeToTACFile("\n" + tacIndent + branchVar2 + ":");
             } else if (ctx.getText().contains("while(")) {
+
                 String branchVar1 = "_L"+String.valueOf(branchVariablesCount);
                 branchVariablesCount++;
                 branchVariables.add(branchVar1);
@@ -766,6 +767,7 @@ public class SemanticListener extends decafBaseListener {
                     currentLocation = getNextTemp();
                 }
 
+                writeToTACFile("\n" + tacIndent + "StartWhile:");
                 writeToTACFile("\n" + tacIndent + branchVar1 + ":");
 
                 operateExpression(ctx.expression());

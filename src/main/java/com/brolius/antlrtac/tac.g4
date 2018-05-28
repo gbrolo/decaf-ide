@@ -22,7 +22,7 @@ statement:          ifStatement
                     | assignStatement
                     | (expression)? ';';
 ifStatement:        'Ifz' location 'Goto' location ';' block 'Goto' location ';' label block label ;
-whileStatement:     label (assignStatement) ';' 'Ifz' location 'Goto' location ';' block 'Goto' location (':')* label ;
+whileStatement:     'StartWhile:' label (assignStatement) 'Ifz' location 'Goto' location ';' block 'Goto' location (':')* label ;
 assignStatement:    location '=' expression ';' ;
 methodCall:         (pushParam)* 'LCall' location ';' 'PopParams' NUM ';' ;
 structCall:         'SCall' structLocation block 'End Scall;' ;

@@ -1,12 +1,16 @@
 main:
-	BeginFunc 8;
+	BeginFunc 20;
+	_t1 = y*y;
+	_t0 = x*x;
+	m2 = _t0+_t1;
+
+	StartWhile:
 
 	_L0:
-	_t0 = x<y;
-	Ifz _t0 Goto _L1;
-	x = x*2;
+	_t2 = 5<m2;
+	Ifz _t2 Goto _L1;
+	m2 = m2-x;
 	Goto _L0:
 
 	_L1:
-	y = x;
 	EndFunc;
