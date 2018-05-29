@@ -4,6 +4,19 @@
 
 .text
 .globl main
+main:
+	li $t0, 137
+	move $a0, $t0
+	sw $a0, z_SimpleFn
+	jal SimpleFn
+	move $s0, $v0
+
+
+	# ---------- Exit ----------
+	li $v0, 10
+	syscall
+
+
 SimpleFn:
 	addi $sp, $sp, -4				# Adjust stack pointer
 	sw $s0, 0($sp)					# Save reg
@@ -22,19 +35,6 @@ SimpleFn:
 	lw $s1, 0($sp)					# Restore reg
 	addi $sp, $sp, 4				# Adjust stack pointer
 	jr $ra							# Jump to addr stored in $ra
-
-
-main:
-	li $t0, 137
-	move $a0, $t0
-	sw $a0, z_SimpleFn
-	jal SimpleFn
-	move $s0, $v0
-
-
-	# ---------- Exit ----------
-	li $v0, 10
-	syscall
 
 
 # ---------- data section ----------

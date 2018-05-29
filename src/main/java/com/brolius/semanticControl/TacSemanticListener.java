@@ -4,10 +4,7 @@ import com.brolius.antlr.decafParser;
 import com.brolius.antlrtac.tacBaseListener;
 import com.brolius.antlrtac.tacParser;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Stack;
@@ -29,6 +26,7 @@ public class TacSemanticListener extends tacBaseListener {
     private List<tacParser.AssignStatementContext> assignments;
     private List<tacParser.IfStatementContext> ifs;
     private List<tacParser.WhileStatementContext> whiles;
+    private List<decafParser.MethodCallContext> methodCalls;
 
     private List<String> pushedParams;
 
@@ -49,6 +47,7 @@ public class TacSemanticListener extends tacBaseListener {
         assignments = new LinkedList<>();
         ifs = new LinkedList<>();
         whiles = new LinkedList<>();
+        methodCalls = new LinkedList<>();
 
         pushedParams = new LinkedList<>();
     }
@@ -78,10 +77,14 @@ public class TacSemanticListener extends tacBaseListener {
             // write data
             writeDataInMemory(methodName, varName, type);
         }
+
+        // re write file with expected order
+        orderFile();
     }
 
     @Override
     public void enterMainDeclaration(tacParser.MainDeclarationContext ctx) {
+        writeToMIPSFile("# ------------------------------------------------- StartMain ---------------------------------------------------------");
         this.currentContext = "main";                            // current context = main
         writeToMIPSFile(currentIndent + "main:");           // main method declaration
         incrementIndent();                                       // increment indent
@@ -96,10 +99,12 @@ public class TacSemanticListener extends tacBaseListener {
                 currentIndent + "syscall");
         decrementIndent();                                       // decrement indent
         writeToMIPSFile(currentIndent + "\n");
+        writeToMIPSFile("# -------------------------------------------------- EndMain ---------------------------------------------------------");
     }
 
     @Override
     public void enterMethodDeclaration(tacParser.MethodDeclarationContext ctx) {
+        writeToMIPSFile("# -------------------------------------------------- StartProcedure ---------------------------------------------------");
         String methodName = ctx.location().getText().replace("_", "");
         this.currentContext = methodName;
         writeToMIPSFile(currentIndent + methodName + ":");
@@ -129,6 +134,7 @@ public class TacSemanticListener extends tacBaseListener {
         writeToMIPSFile(currentIndent + "jr $ra\t\t\t\t\t\t\t# Jump to addr stored in $ra");
         writeToMIPSFile("\n");
         decrementIndent();
+        writeToMIPSFile("# -------------------------------------------------- EndProcedure -----------------------------------------------------");
     }
 
     @Override
@@ -202,13 +208,19 @@ public class TacSemanticListener extends tacBaseListener {
             for (tacParser.StatementContext stmt : fbStatements) {
                 if (stmt.assignStatement() != null) {
                     enterAssignStatement(stmt.assignStatement());
-                    assignments.add(stmt.assignStatement());
+                    if (!assignments.contains(stmt.assignStatement())){
+                        assignments.add(stmt.assignStatement());
+                    }
                 } else if (stmt.ifStatement() != null) {
                     enterIfStatement(stmt.ifStatement());
-                    ifs.add(stmt.ifStatement());
+                    if (!ifs.contains(stmt.ifStatement())) {
+                        ifs.add(stmt.ifStatement());
+                    }
                 } else if (stmt.whileStatement() != null) {
                     enterWhileStatement(stmt.whileStatement());
-                    whiles.add(stmt.whileStatement());
+                    if (!whiles.contains(stmt.whileStatement())) {
+                        whiles.add(stmt.whileStatement());
+                    }
                 }
             }
 
@@ -217,6 +229,8 @@ public class TacSemanticListener extends tacBaseListener {
 
             // write label 2
             writeToMIPSFile(currentIndent + lbl2 + ":");
+
+            whiles.add(ctx);
 
         }
     }
@@ -245,13 +259,19 @@ public class TacSemanticListener extends tacBaseListener {
             for (tacParser.StatementContext stmt : fbStatements) {
                 if (stmt.assignStatement() != null) {
                     enterAssignStatement(stmt.assignStatement());
-                    assignments.add(stmt.assignStatement());
+                    if (!assignments.contains(stmt.assignStatement())){
+                        assignments.add(stmt.assignStatement());
+                    }
                 } else if (stmt.ifStatement() != null) {
                     enterIfStatement(stmt.ifStatement());
-                    ifs.add(stmt.ifStatement());
+                    if (!ifs.contains(stmt.ifStatement())) {
+                        ifs.add(stmt.ifStatement());
+                    }
                 } else if (stmt.whileStatement() != null) {
                     enterWhileStatement(stmt.whileStatement());
-                    whiles.add(stmt.whileStatement());
+                    if (!whiles.contains(stmt.whileStatement())) {
+                        whiles.add(stmt.whileStatement());
+                    }
                 }
             }
 
@@ -266,13 +286,19 @@ public class TacSemanticListener extends tacBaseListener {
             for (tacParser.StatementContext stmt : tbStatements) {
                 if (stmt.assignStatement() != null) {
                     enterAssignStatement(stmt.assignStatement());
-                    assignments.add(stmt.assignStatement());
+                    if (!assignments.contains(stmt.assignStatement())){
+                        assignments.add(stmt.assignStatement());
+                    }
                 } else if (stmt.ifStatement() != null) {
                     enterIfStatement(stmt.ifStatement());
-                    ifs.add(stmt.ifStatement());
+                    if (!ifs.contains(stmt.ifStatement())) {
+                        ifs.add(stmt.ifStatement());
+                    }
                 } else if (stmt.whileStatement() != null) {
                     enterWhileStatement(stmt.whileStatement());
-                    whiles.add(stmt.whileStatement());
+                    if (!whiles.contains(stmt.whileStatement())) {
+                        whiles.add(stmt.whileStatement());
+                    }
                 }
             }
 
@@ -456,6 +482,7 @@ public class TacSemanticListener extends tacBaseListener {
                     }
                 }
             }
+            assignments.add(ctx);
         }
     }
 
@@ -564,5 +591,122 @@ public class TacSemanticListener extends tacBaseListener {
             out.println(line);
         } catch (IOException e) {
         }
+    }
+
+    private void writeToMIPSOrderedFile(String line) {
+        try(FileWriter fw = new FileWriter("ordered_mips.asm", true);
+            BufferedWriter bw = new BufferedWriter(fw);
+            PrintWriter out = new PrintWriter(bw))
+        {
+            out.println(line);
+        } catch (IOException e) {
+        }
+    }
+
+    private void orderFile() {
+        // create file
+        try {
+            File file = new File("ordered_mips.asm");
+            if (file.exists()) {
+                file.delete();
+            }
+            file.createNewFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // read generated_mips.asm and omit # StartProcedure and # dataSection sections
+        try (BufferedReader br = new BufferedReader(new FileReader("generated_mips.asm"))) {
+            String line;
+            boolean write = true;
+            while ((line = br.readLine()) != null) {
+                boolean skip = false;
+                if (line.contains("# -------------------------------------------------- StartProcedure ---------------------------------------------------")){
+                    // omit
+                    write = false;
+                }
+
+                if (line.contains("# ------------------------------------------------- StartMain ---------------------------------------------------------")) {
+                    // write
+                    write = true;
+                    skip = true;
+                }
+
+                if (line.contains("# -------------------------------------------------- EndMain ---------------------------------------------------------")) {
+                    skip = true;
+                }
+
+                if (line.contains("# ---------- data section ----------")) {
+                    // omit
+                    write = false;
+                }
+
+                if (write && !skip) {
+                    writeToMIPSOrderedFile(line);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // read generated_mips.asm and write procedures and data section
+        try (BufferedReader br = new BufferedReader(new FileReader("generated_mips.asm"))) {
+            String line;
+            boolean write = false;
+            while ((line = br.readLine()) != null) {
+                boolean skip = false;
+                if (line.contains("# -------------------------------------------------- StartProcedure ---------------------------------------------------")){
+                    // omit
+                    write = true;
+                    skip = true;
+                }
+
+                if (line.contains("# -------------------------------------------------- EndProcedure -----------------------------------------------------")) {
+                    // write
+                    write = false;
+                }
+
+                if (line.contains("# ---------- data section ----------")) {
+                    // omit
+                    write = true;
+                }
+
+                if (write && !skip) {
+                    writeToMIPSOrderedFile(line);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // copy content of ordered file into generated file and delete ordered file
+        try {
+            File file = new File("generated_mips.asm");
+            if (file.exists()) {
+                file.delete();
+            }
+            file.createNewFile();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        try (BufferedReader br = new BufferedReader(new FileReader("ordered_mips.asm"))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                writeToMIPSFile(line);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            File file = new File("ordered_mips.asm");
+            if (file.exists()) {
+                file.delete();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 }
