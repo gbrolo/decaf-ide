@@ -1630,4 +1630,8 @@ public class SemanticListener extends decafBaseListener {
     public List<VarElement> getVarList() {
         return this.varList;
     }
+
+    public List<MethodElement> getMethodFirms() {
+        return methodFirms;
+    }
 }

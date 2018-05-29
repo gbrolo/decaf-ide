@@ -172,7 +172,7 @@ public class MyUI extends UI {
                 ParseTree pt = tp.program();
 
                 ParseTreeWalker tacTreeWalker = new ParseTreeWalker();
-                TacSemanticListener tacSL = new TacSemanticListener(tp, semanticListener.getVarList());
+                TacSemanticListener tacSL = new TacSemanticListener(tp, semanticListener.getVarList(), semanticListener.getMethodFirms());
                 walker.walk(tacSL, pt);
 
 

@@ -1,5 +1,6 @@
 package com.brolius.semanticControl;
 
+import com.brolius.antlr.decafParser;
 import com.brolius.antlrtac.tacBaseListener;
 import com.brolius.antlrtac.tacParser;
 
@@ -18,8 +19,10 @@ public class TacSemanticListener extends tacBaseListener {
     private final String dataIndent = "\t\t\t\t";
 
     private List<VarElement> varListFromSource;
+    private List<MethodElement> methodListFromSource;
     private Stack<String> temporariesStack;
     private Stack<String> savedValuesStack;
+    private Stack<String> argumentsStack;
 
     private String[] registersInUse;
 
@@ -27,14 +30,18 @@ public class TacSemanticListener extends tacBaseListener {
     private List<tacParser.IfStatementContext> ifs;
     private List<tacParser.WhileStatementContext> whiles;
 
-    public TacSemanticListener(tacParser parser, List<VarElement> varListFromSource) {
+    private List<String> pushedParams;
+
+    public TacSemanticListener(tacParser parser, List<VarElement> varListFromSource, List<MethodElement> methodListFromSource) {
         this.parser = parser;
         this.varListFromSource = varListFromSource;
+        this.methodListFromSource = methodListFromSource;
         this.currentIndent = "";
         this.currentContext = "main";
 
         this.temporariesStack = new Stack<>();
         this.savedValuesStack = new Stack<>();
+        this.argumentsStack = new Stack<>();
         fillRegistersStack();
 
         registersInUse = new String[3];
@@ -42,6 +49,8 @@ public class TacSemanticListener extends tacBaseListener {
         assignments = new LinkedList<>();
         ifs = new LinkedList<>();
         whiles = new LinkedList<>();
+
+        pushedParams = new LinkedList<>();
     }
 
     @Override
@@ -87,6 +96,83 @@ public class TacSemanticListener extends tacBaseListener {
                 currentIndent + "syscall");
         decrementIndent();                                       // decrement indent
         writeToMIPSFile(currentIndent + "\n");
+    }
+
+    @Override
+    public void enterMethodDeclaration(tacParser.MethodDeclarationContext ctx) {
+        String methodName = ctx.location().getText().replace("_", "");
+        this.currentContext = methodName;
+        writeToMIPSFile(currentIndent + methodName + ":");
+        incrementIndent();
+
+        int NUM = Integer.parseInt(ctx.funcBlock().NUM().getText()) / 4;
+
+        // push onto stack
+        for (int i = 0; i < NUM; i++) {
+            writeToMIPSFile(currentIndent + "addi $sp, $sp, -4\t\t\t\t# Adjust stack pointer");
+            writeToMIPSFile(currentIndent + "sw $s" + String.valueOf(i) + ", 0($sp)\t\t\t\t\t# Save reg");
+        }
+
+
+    }
+
+    @Override
+    public void exitMethodDeclaration(tacParser.MethodDeclarationContext ctx) {
+        int NUM = Integer.parseInt(ctx.funcBlock().NUM().getText()) / 4;
+        // restore saved values
+        for (int i = NUM; i > 0; i--) {
+            writeToMIPSFile(currentIndent + "lw $s" + String.valueOf(i) + ", 0($sp)\t\t\t\t\t# Restore reg");
+            writeToMIPSFile(currentIndent + "addi $sp, $sp, 4\t\t\t\t# Adjust stack pointer");
+        }
+
+        // return from function
+        writeToMIPSFile(currentIndent + "jr $ra\t\t\t\t\t\t\t# Jump to addr stored in $ra");
+        writeToMIPSFile("\n");
+        decrementIndent();
+    }
+
+    @Override
+    public void enterMethodCall(tacParser.MethodCallContext ctx) {
+        // get params
+        List<tacParser.PushParamContext> params = ctx.pushParam();
+
+        // load params in registers
+        for (tacParser.PushParamContext param : params) {
+            String argRegister = getNextAvailableAR();
+
+            if (!argRegister.equals("$err")) {
+                String newParam = param.location().getText().replace("_", "$");
+                pushedParams.add(argRegister);
+                writeToMIPSFile(currentIndent + "move " + argRegister + ", " + newParam);
+            }
+        }
+
+        String methodName = ctx.location().getText().replace("_", "");
+        List<decafParser.ParameterContext> paramsInSymbolTable = new LinkedList<>();
+
+        for (MethodElement me : this.methodListFromSource) {
+            if (me.getFirm().equals(methodName)) {
+                paramsInSymbolTable.addAll(me.getArgs());
+                break;
+            }
+        }
+
+        int index = 0;
+        for (decafParser.ParameterContext param : paramsInSymbolTable) {
+            String varName = param.ID().getText() + "_" + methodName;
+            writeToMIPSFile(currentIndent + "sw " + pushedParams.get(index) + ", " + varName);
+            index = index + 1;
+        }
+
+        // jump to function
+        writeToMIPSFile(currentIndent + "jal " + methodName);
+
+        // load returned value
+        String returnReg = getNextAvailableSVR();
+        writeToMIPSFile(currentIndent + "move " + returnReg + ", " + "$v0");
+
+        //pushedParams.clear();
+
     }
 
     @Override
@@ -305,7 +391,6 @@ public class TacSemanticListener extends tacBaseListener {
                             // we need to store
                             writeToMIPSFile(currentIndent + "sw " + registersInUse[0] + ", " + locRegisterData + dataIndent +
                                     "# str data");
-                            writeToMIPSFile("\n");
 
                             // since we did a store we can free the registers
                             this.savedValuesStack.push(registersInUse[0]);
@@ -419,6 +504,7 @@ public class TacSemanticListener extends tacBaseListener {
     private void fillRegistersStack() {
         this.temporariesStack.clear();
         this.savedValuesStack.clear();
+        this.argumentsStack.clear();
 
         for (int i = 9; i >= 0; i--) {
             this.temporariesStack.push("$t" + String.valueOf(i));
@@ -426,6 +512,10 @@ public class TacSemanticListener extends tacBaseListener {
 
         for (int i = 7; i >= 0; i--) {
             this.savedValuesStack.push("$s" + String.valueOf(i));
+        }
+
+        for (int i = 3; i >= 0; i--) {
+            this.argumentsStack.push("$a" + String.valueOf(i));
         }
     }
 
@@ -440,6 +530,13 @@ public class TacSemanticListener extends tacBaseListener {
     private String getNextAvailableSVR() {
         if (!this.savedValuesStack.isEmpty()) {
             return this.savedValuesStack.pop();
+        } else return "$err";
+    }
+
+    // To obtain next available argument register
+    private String getNextAvailableAR() {
+        if (!this.argumentsStack.isEmpty()) {
+            return this.argumentsStack.pop();
         } else return "$err";
     }
 
