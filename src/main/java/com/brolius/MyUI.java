@@ -86,15 +86,17 @@ public class MyUI extends UI {
         });
 
         /* Buttons for compilation, tree and to clear the console */
-        Button button = new Button("Compile code");
+        Button button = new Button("Compile");
         Button generateTreeBtn = new Button("Tree");
-        Button clrConsoleBtn = new Button("Clear console");
-        Button showTAC = new Button("Show TAC");
+        Button clrConsoleBtn = new Button("Clear");
+        Button showTAC = new Button("TAC");
+        Button showMIPS = new Button("MIPS");
 
         button.setSizeFull();
         generateTreeBtn.setSizeFull();
         clrConsoleBtn.setSizeFull();
         showTAC.setSizeFull();
+        showMIPS.setSizeFull();
 
         generateTreeBtn.setEnabled(false);
 
@@ -298,6 +300,45 @@ public class MyUI extends UI {
             hLayout.getUI().getUI().addWindow(window);
         });
 
+        showMIPS.addClickListener(event -> {
+            final Window window = new Window("Generated MIPS");
+            //window.setWidth(90.0f, Unit.PERCENTAGE);
+            window.setHeight(90.0f, Unit.PERCENTAGE);
+            window.setWidth(50.0f, Sizeable.Unit.PERCENTAGE);
+            window.center();
+            window.setResizable(false);
+
+            Scanner in = null;
+            String outString = "";
+            try {
+                in = new Scanner(new FileReader("generated_mips.asm"));
+                StringBuilder sb = new StringBuilder();
+                while(in.hasNext()) {
+                    sb.append(in.nextLine() + "\n");
+                }
+                in.close();
+                outString = sb.toString();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            }
+
+            Panel tacPanel = new Panel();
+
+            Label tacLabel = new Label(outString.replace("<", " < ")
+                    .replace("\n", "<br>")
+                    .replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;"), ContentMode.HTML);
+
+            VerticalLayout tacLayout = new VerticalLayout();
+            tacLayout.setSpacing(true);
+            tacLayout.addComponent(tacLabel);
+
+            tacPanel.setContent(tacLayout);
+
+            window.setContent(tacPanel);
+
+            hLayout.getUI().getUI().addWindow(window);
+        });
+
         Label mainlbl = new Label("<div style=\"font-size: 1.8em;\"><center><strong>VaaDecaf</strong></center><div>", ContentMode.HTML);
         mainlbl.setWidth(100.0f, Sizeable.Unit.PERCENTAGE);
 
@@ -309,7 +350,7 @@ public class MyUI extends UI {
 
         HorizontalLayout editorButtonsLayout = new HorizontalLayout();
         editorButtonsLayout.setSizeFull();
-        editorButtonsLayout.addComponents(button, generateTreeBtn, showTAC, clrConsoleBtn);
+        editorButtonsLayout.addComponents(button, generateTreeBtn, showTAC, showMIPS, clrConsoleBtn);
 
         consolePanel.setContent(consolePanelLayout);
         consoleLayout.addComponent(consolePanel);

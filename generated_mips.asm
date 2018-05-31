@@ -5,24 +5,11 @@
 .text
 .globl main
 main:
-	lw $t1, var1_main				# ld data var1_main
-	lw $t2, var2_main				# ld data var2_main
-	slt $t0, $t1, $t2
-	blez $t0, _L0
-	lw $t2, var1_main				# ld data var1_main
-	move $s0, $t2
-	sw $s0, var3_main				# str data
-	b _L1
-	_L0:
-	lw $t2, var2_main				# ld data var2_main
-	move $s1, $t2
-	sw $s1, var3_main				# str data
-	_L1:
-	lw $t2, var3_main				# ld data var3_main
-	lw $t1, var3_main				# ld data var3_main
-	mult $t2, $t1
-	mflo $s2
-	sw $s2, var3_main				# str data
+	li $t0, 5
+	move $a0, $t0
+	sw $a0, n_factorial
+	jal factorial
+	move $s0, $v0
 
 
 	# ---------- Exit ----------
@@ -30,8 +17,57 @@ main:
 	syscall
 
 
+factorial:
+	addi $sp, $sp, -4				# Adjust stack pointer
+	sw $s0, 0($sp)					# Save reg
+	addi $sp, $sp, -4				# Adjust stack pointer
+	sw $s1, 0($sp)					# Save reg
+	addi $sp, $sp, -4				# Adjust stack pointer
+	sw $s2, 0($sp)					# Save reg
+	addi $sp, $sp, -4				# Adjust stack pointer
+	sw $s3, 0($sp)					# Save reg
+	li $s0, 1
+	sw $s0, ans_factorial				# str data
+	lw $t0, n_factorial				# ld data n_factorial
+	move $s1, $t0
+	sw $s1, i_factorial				# str data
+	_L0:
+	li $t1, 1
+	lw $t2, i_factorial				# ld data i_factorial
+	slt $t0, $t1, $t2
+	blez $t0, _L1
+	lw $t2, ans_factorial				# ld data ans_factorial
+	lw $t1, i_factorial				# ld data i_factorial
+	mult $t2, $t1
+	mflo $s2
+	sw $s2, ans_factorial				# str data
+	lw $t1, i_factorial				# ld data i_factorial
+	li $t2, 1
+	sub $s3, $t1, $t2
+	sw $s3, i_factorial				# str data
+	b _L0
+	_L1:
+	li $v0, 1					# Print call
+	lw $a0, ans_factorial
+	syscall
+	lw $t0, ans_factorial				# ld data ans_factorial
+	move $t1, $t0
+	lw $t3, ans_factorial				# ld data ans_factorial
+	move $t2, $t3
+	move $v0, $t1					# Return
+	lw $s4, 0($sp)					# Restore reg
+	addi $sp, $sp, 4				# Adjust stack pointer
+	lw $s3, 0($sp)					# Restore reg
+	addi $sp, $sp, 4				# Adjust stack pointer
+	lw $s2, 0($sp)					# Restore reg
+	addi $sp, $sp, 4				# Adjust stack pointer
+	lw $s1, 0($sp)					# Restore reg
+	addi $sp, $sp, 4				# Adjust stack pointer
+	jr $ra							# Jump to addr stored in $ra
+
+
 # ---------- data section ----------
 .data
-var1_main:				.word 0
-var2_main:				.word 0
-var3_main:				.word 0
+n_factorial:				.word 0
+ans_factorial:				.word 0
+i_factorial:				.word 0
