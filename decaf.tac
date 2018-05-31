@@ -1,12 +1,13 @@
-_SimpleFn:
-	BeginFunc 8;
-	_t0 = x*y;
-	x = _t0*z;
-	EndFunc;
 main:
-	BeginFunc 8;
-	_t0 = 137;
-	PushParam _t0;
-	LCall _SimpleFn;
-	PopParams 4;
+	BeginFunc 12;
+	b = 2;
+	c = 2;
+	d = 2;
+	_t0 = c*d;
+	a = b+_t0;
+	PushParam d;
+	LCall print;
+	PopParams 1;
+	_t1 = d;
+	d = a*b;
 	EndFunc;

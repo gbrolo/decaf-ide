@@ -138,47 +138,61 @@ public class TacSemanticListener extends tacBaseListener {
     }
 
     @Override
+    public void enterReturnExp(tacParser.ReturnExpContext ctx) {
+        String returnVar = ctx.location().getText().replace("_", "$");
+        //move $v0, returnVar
+        writeToMIPSFile(currentIndent + "move $v0, " + returnVar + "\t\t\t\t\t# Return");
+    }
+
+    @Override
     public void enterMethodCall(tacParser.MethodCallContext ctx) {
         // get params
         List<tacParser.PushParamContext> params = ctx.pushParam();
-
-        // load params in registers
-        for (tacParser.PushParamContext param : params) {
-            String argRegister = getNextAvailableAR();
-
-            if (!argRegister.equals("$err")) {
-                String newParam = param.location().getText().replace("_", "$");
-                pushedParams.add(argRegister);
-                writeToMIPSFile(currentIndent + "move " + argRegister + ", " + newParam);
-            }
-        }
-
+        // get methodName
         String methodName = ctx.location().getText().replace("_", "");
-        List<decafParser.ParameterContext> paramsInSymbolTable = new LinkedList<>();
 
-        for (MethodElement me : this.methodListFromSource) {
-            if (me.getFirm().equals(methodName)) {
-                paramsInSymbolTable.addAll(me.getArgs());
-                break;
+        // check if method is one special method, like print
+        if (methodName.equals("print")) {
+            writeToMIPSFile(currentIndent + "li " + "$v0" + ", " + "1\t\t\t\t\t# Print call");
+            writeToMIPSFile(currentIndent + "lw $a0, " + params.get(0).location().getText() + "_" + currentContext);
+            writeToMIPSFile(currentIndent + "syscall");
+        } else {
+            // load params in registers
+            for (tacParser.PushParamContext param : params) {
+                String argRegister = getNextAvailableAR();
+
+                if (!argRegister.equals("$err")) {
+                    String newParam = param.location().getText().replace("_", "$");
+                    pushedParams.add(argRegister);
+                    writeToMIPSFile(currentIndent + "move " + argRegister + ", " + newParam);
+                }
             }
+
+            List<decafParser.ParameterContext> paramsInSymbolTable = new LinkedList<>();
+
+            for (MethodElement me : this.methodListFromSource) {
+                if (me.getFirm().equals(methodName)) {
+                    paramsInSymbolTable.addAll(me.getArgs());
+                    break;
+                }
+            }
+
+            int index = 0;
+            for (decafParser.ParameterContext param : paramsInSymbolTable) {
+                String varName = param.ID().getText() + "_" + methodName;
+                writeToMIPSFile(currentIndent + "sw " + pushedParams.get(index) + ", " + varName);
+                index = index + 1;
+            }
+
+            // jump to function
+            writeToMIPSFile(currentIndent + "jal " + methodName);
+
+            // load returned value
+            String returnReg = getNextAvailableSVR();
+            writeToMIPSFile(currentIndent + "move " + returnReg + ", " + "$v0");
+
+            //pushedParams.clear();
         }
-
-        int index = 0;
-        for (decafParser.ParameterContext param : paramsInSymbolTable) {
-            String varName = param.ID().getText() + "_" + methodName;
-            writeToMIPSFile(currentIndent + "sw " + pushedParams.get(index) + ", " + varName);
-            index = index + 1;
-        }
-
-        // jump to function
-        writeToMIPSFile(currentIndent + "jal " + methodName);
-
-        // load returned value
-        String returnReg = getNextAvailableSVR();
-        writeToMIPSFile(currentIndent + "move " + returnReg + ", " + "$v0");
-
-        //pushedParams.clear();
-
     }
 
     @Override
@@ -201,7 +215,7 @@ public class TacSemanticListener extends tacBaseListener {
             assignments.add(assignStmt);
 
             // write MIPS branch
-            writeToMIPSFile(currentIndent + "bgtz " + temp + ", " + lbl2);
+            writeToMIPSFile(currentIndent + "blez " + temp + ", " + lbl2);
 
             // TODO handle false block
             List<tacParser.StatementContext> fbStatements = falseBlock.statement();
@@ -236,6 +250,11 @@ public class TacSemanticListener extends tacBaseListener {
     }
 
     @Override
+    public void exitWhileStatement(tacParser.WhileStatementContext ctx) {
+        fillRegistersStack();
+    }
+
+    @Override
     public void enterIfStatement(tacParser.IfStatementContext ctx) {
         if (!ifs.contains(ctx)) {
             // get involved variables and labels
@@ -247,7 +266,7 @@ public class TacSemanticListener extends tacBaseListener {
             temp = temp.replace("_", "$");
 
             // write MIPS branch
-            writeToMIPSFile(currentIndent + "bgtz " + temp + ", " + lbl1);
+            writeToMIPSFile(currentIndent + "blez " + temp + ", " + lbl1);
 
             // get blocks
             List<tacParser.BlockContext> blocks = ctx.block();
@@ -403,7 +422,7 @@ public class TacSemanticListener extends tacBaseListener {
                                         "# str data");
 
                                 // since we did a store we can free the registers
-                                this.savedValuesStack.push(registersInUse[0]);
+                                //this.savedValuesStack.push(registersInUse[0]);
                                 this.temporariesStack.push(registersInUse[1]);
                                 this.temporariesStack.push(registersInUse[2]);
                             }
@@ -419,7 +438,7 @@ public class TacSemanticListener extends tacBaseListener {
                                     "# str data");
 
                             // since we did a store we can free the registers
-                            this.savedValuesStack.push(registersInUse[0]);
+                            //this.savedValuesStack.push(registersInUse[0]);
                         }
 
                         // free registers except [0]
@@ -444,7 +463,7 @@ public class TacSemanticListener extends tacBaseListener {
                                 "# str data");
 
                         // since we did a store we can free the registers
-                        this.savedValuesStack.push(registersInUse[0]);
+                        //this.savedValuesStack.push(registersInUse[0]);
                     } else {
                         writeToMIPSFile(currentIndent + "li " + registersInUse[0] + ", " + String.valueOf(immediate));
                     }
@@ -475,7 +494,7 @@ public class TacSemanticListener extends tacBaseListener {
                                 "# str data");
 
                         // since we did a store we can free the registers
-                        this.savedValuesStack.push(registersInUse[0]);
+                        //this.savedValuesStack.push(registersInUse[0]);
                         this.temporariesStack.push(registersInUse[1]);
                     } else {
                         writeToMIPSFile(currentIndent + "move " + registersInUse[0] + ", " + registersInUse[1]);

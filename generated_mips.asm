@@ -5,11 +5,29 @@
 .text
 .globl main
 main:
-	li $t0, 137
-	move $a0, $t0
-	sw $a0, z_SimpleFn
-	jal SimpleFn
-	move $s0, $v0
+	li $s0, 2
+	sw $s0, b_main				# str data
+	li $s1, 2
+	sw $s1, c_main				# str data
+	li $s2, 2
+	sw $s2, d_main				# str data
+	lw $t1, c_main				# ld data c_main
+	lw $t2, d_main				# ld data d_main
+	mult $t1, $t2
+	mflo $t0
+	lw $t2, b_main				# ld data b_main
+	add $s3, $t2, $t0
+	sw $s3, a_main				# str data
+	li $v0, 1					# Print call
+	lw $a0, d_main
+	syscall
+	lw $t0, d_main				# ld data d_main
+	move $t1, $t0
+	lw $t2, a_main				# ld data a_main
+	lw $t0, b_main				# ld data b_main
+	mult $t2, $t0
+	mflo $s4
+	sw $s4, d_main				# str data
 
 
 	# ---------- Exit ----------
@@ -17,28 +35,9 @@ main:
 	syscall
 
 
-SimpleFn:
-	addi $sp, $sp, -4				# Adjust stack pointer
-	sw $s0, 0($sp)					# Save reg
-	addi $sp, $sp, -4				# Adjust stack pointer
-	sw $s1, 0($sp)					# Save reg
-	lw $t1, x_SimpleFn				# ld data x_SimpleFn
-	lw $t2, y_SimpleFn				# ld data y_SimpleFn
-	mult $t1, $t2
-	mflo $t0
-	lw $t2, z_SimpleFn				# ld data z_SimpleFn
-	mult $t0, $t2
-	mflo $s0
-	sw $s0, x_SimpleFn				# str data
-	lw $s2, 0($sp)					# Restore reg
-	addi $sp, $sp, 4				# Adjust stack pointer
-	lw $s1, 0($sp)					# Restore reg
-	addi $sp, $sp, 4				# Adjust stack pointer
-	jr $ra							# Jump to addr stored in $ra
-
-
 # ---------- data section ----------
 .data
-z_SimpleFn:				.word 0
-x_SimpleFn:				.word 0
-y_SimpleFn:				.word 0
+a_main:				.word 0
+b_main:				.word 0
+c_main:				.word 0
+d_main:				.word 0

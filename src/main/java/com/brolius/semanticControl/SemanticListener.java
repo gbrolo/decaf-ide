@@ -966,95 +966,104 @@ public class SemanticListener extends decafBaseListener {
             firm = ctx.ID().getText();
         }
 
-        // verify if method call is valid, this means if the method has been correctly declared before
-        boolean isMethodDeclared = false;
-        List<decafParser.ArgContext> argList = ctx.arg1().arg2().arg();
-        for (MethodElement listMethod : methodFirms) {
-            if (listMethod.getFirm().equals(firm)) {
-                if (argList.size() != listMethod.getArgs().size()) {
-                    semanticErrorsList.add("Method call for <strong>" + firm + "</strong> has more parameters <br> than the method definition");
-                }
+        // check if method is one of reserved methods
+        if (firm.equals("print")) {
+            //writeToTACSignal = true;
 
-                isMethodDeclared = true;
-                // verify that arguments match the type of the parameters in method
-                int i = 0;
-                for (decafParser.ParameterContext pc : listMethod.getArgs()) {
-                    System.out.println("PARAMETER TYPE IS: " + pc.parameterType().getText());
-                    System.out.println("ARG at i = " + i + " is: " + argList.get(i).getText());
+            writeToTACFile(tacIndent + "PushParam " + ctx.arg1().arg2().arg().get(0).getText() + ";");
+            writeToTACFile(tacIndent + "LCall " + firm + ";\n" + tacIndent + "PopParams 1;");
 
-                    String argType = "";
-                    for (VarElement ve : varList) {
-                        if (ve.getID().equals(argList.get(i).getText())) {
-                            argType = ve.getVarType();
-                        }
+            //writeToTACSignal = false;
+        } else {
+            // verify if method call is valid, this means if the method has been correctly declared before
+            boolean isMethodDeclared = false;
+            List<decafParser.ArgContext> argList = ctx.arg1().arg2().arg();
+            for (MethodElement listMethod : methodFirms) {
+                if (listMethod.getFirm().equals(firm)) {
+                    if (argList.size() != listMethod.getArgs().size()) {
+                        semanticErrorsList.add("Method call for <strong>" + firm + "</strong> has more parameters <br> than the method definition");
                     }
 
-                    try {
-                        decafParser.ExpressionContext eCtx = argList.get(i).expression();
-                        String thing = eCtx.getText();
-                        operateExpression(eCtx);
-                        argType = getTypeOfExpression(eCtx.getText());
-                        if (argType == null) {
-                            argType = "";
-                        }
-                    } catch (Exception e) {
-                        argType = "";
-                    }
+                    isMethodDeclared = true;
+                    // verify that arguments match the type of the parameters in method
+                    int i = 0;
+                    for (decafParser.ParameterContext pc : listMethod.getArgs()) {
+                        System.out.println("PARAMETER TYPE IS: " + pc.parameterType().getText());
+                        System.out.println("ARG at i = " + i + " is: " + argList.get(i).getText());
 
-                    if (argType.equals("")) {
-                        String argument = argList.get(i).getText();
-                        System.out.println(argument);
-
-                        try {
-                            int parsedArg = Integer.parseInt(argument);
-                            argType = "int";
-                        } catch (Exception e) {
-                            if (argument.equals("true") || argument.equals("false")) {
-                                argType = "boolean";
-                            } else if (argument.matches("'.'")) {
-                                argType = "char";
+                        String argType = "";
+                        for (VarElement ve : varList) {
+                            if (ve.getID().equals(argList.get(i).getText())) {
+                                argType = ve.getVarType();
                             }
                         }
-                    }
 
-                    if (!pc.parameterType().getText().equals(argType)) {
-                        semanticErrorsList.add("Parameter " + (i+1) + " type <strong>" + pc.parameterType().getText()
-                                + "</strong> in " + firm + " does not match <br>argument type <strong>" + argType
-                                + "</strong> in method call.");
+                        try {
+                            decafParser.ExpressionContext eCtx = argList.get(i).expression();
+                            String thing = eCtx.getText();
+                            operateExpression(eCtx);
+                            argType = getTypeOfExpression(eCtx.getText());
+                            if (argType == null) {
+                                argType = "";
+                            }
+                        } catch (Exception e) {
+                            argType = "";
+                        }
+
+                        if (argType.equals("")) {
+                            String argument = argList.get(i).getText();
+                            System.out.println(argument);
+
+                            try {
+                                int parsedArg = Integer.parseInt(argument);
+                                argType = "int";
+                            } catch (Exception e) {
+                                if (argument.equals("true") || argument.equals("false")) {
+                                    argType = "boolean";
+                                } else if (argument.matches("'.'")) {
+                                    argType = "char";
+                                }
+                            }
+                        }
+
+                        if (!pc.parameterType().getText().equals(argType)) {
+                            semanticErrorsList.add("Parameter " + (i+1) + " type <strong>" + pc.parameterType().getText()
+                                    + "</strong> in " + firm + " does not match <br>argument type <strong>" + argType
+                                    + "</strong> in method call.");
+                        }
+                        i++;
                     }
-                    i++;
+                    break;
                 }
-                break;
-            }
-        }
-
-        for (decafParser.ArgContext arg : argList) {
-            tmpOpList.add(new Operation(arg.getText()));
-            evaluatedExpressions.add(arg.expression());
-        }
-
-        // TAC Generation
-        List<String> argTmps = new LinkedList<>();
-        if (!tmpOpList.isEmpty()) {
-            // TODO remove duplicates from tmpOpList
-            removeTmpOpListDuplicates();
-
-            String currentTemp = getCurrentTemp();
-
-            for (Operation op : tmpOpList) {
-                argTmps.add(getCurrentTemp());
-                getNextTemp();
             }
 
-            setCurrentTemp(currentTemp);
+            for (decafParser.ArgContext arg : argList) {
+                tmpOpList.add(new Operation(arg.getText()));
+                evaluatedExpressions.add(arg.expression());
+            }
 
-            assignTemporals();
-            writeAssignTAC();
-            //argTmps.add(getPreviousTemp()); // TODO check this
-            currentLocation = getNextTemp();
-        }
+            // TAC Generation
+            List<String> argTmps = new LinkedList<>();
+            if (!tmpOpList.isEmpty()) {
+                // TODO remove duplicates from tmpOpList
+                removeTmpOpListDuplicates();
 
-        System.out.println("evaluatedExpressions has: " + evaluatedExpressions.toString());
+                String currentTemp = getCurrentTemp();
+
+                for (Operation op : tmpOpList) {
+                    argTmps.add(getCurrentTemp());
+                    getNextTemp();
+                }
+
+                setCurrentTemp(currentTemp);
+
+                assignTemporals();
+                writeAssignTAC();
+                //argTmps.add(getPreviousTemp()); // TODO check this
+                currentLocation = getNextTemp();
+            }
+
+            System.out.println("evaluatedExpressions has: " + evaluatedExpressions.toString());
 
 //        String paramList = "";
 //
@@ -1066,22 +1075,23 @@ public class SemanticListener extends decafBaseListener {
 //
 //        writeToTACFile(tacIndent + "PushParam " + paramList + ";");
 
-        for (String arg : argTmps) {
-            writeToTACFile(tacIndent + "PushParam " + arg + ";");
+            for (String arg : argTmps) {
+                writeToTACFile(tacIndent + "PushParam " + arg + ";");
+            }
+
+            if (methodCallLocation != null) {
+                writeToTACFile(tacIndent + methodCallLocation + " = LCall _" + firm + ";");
+                methodCallLocation = null;
+            } else {
+                writeToTACFile(tacIndent + "LCall _" + firm + ";");
+            }
+
+            popParamsSize = argTmps.size() * 4;
+            writeToTACFile(tacIndent + "PopParams " + popParamsSize + ";");
+            popParamsSize = 0;
+
+            if (!isMethodDeclared) { semanticErrorsList.add("Can't make call to undeclared method " + firm); }
         }
-
-        if (methodCallLocation != null) {
-            writeToTACFile(tacIndent + methodCallLocation + " = LCall _" + firm + ";");
-            methodCallLocation = null;
-        } else {
-            writeToTACFile(tacIndent + "LCall _" + firm + ";");
-        }
-
-        popParamsSize = argTmps.size() * 4;
-        writeToTACFile(tacIndent + "PopParams " + popParamsSize + ";");
-        popParamsSize = 0;
-
-        if (!isMethodDeclared) { semanticErrorsList.add("Can't make call to undeclared method " + firm); }
     }
 
     @Override
