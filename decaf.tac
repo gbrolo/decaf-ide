@@ -1,13 +1,13 @@
 main:
-	BeginFunc 12;
-	b = 2;
-	c = 2;
-	d = 2;
-	_t0 = c*d;
-	a = b+_t0;
-	PushParam d;
-	LCall print;
-	PopParams 1;
-	_t1 = d;
-	d = a*b;
+	BeginFunc 8;
+	_t0 = var1<var2;
+	Ifz _t0 Goto _L0;
+	var3 = var1;
+	Goto _L1;
+
+	_L0:
+	var3 = var2;
+
+	_L1:
+	var3 = var3*var3;
 	EndFunc;
